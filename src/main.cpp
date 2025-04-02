@@ -1,36 +1,161 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
-#define GLM_FORCE_RADIANS
-#define GLM_FORCE_DEPTH_ZERO_TO_ONE
-#include <glm/vec4.hpp>
-#include <glm/mat4x4.hpp>
-
 #include <iostream>
+#include <vector>
+#include <stdexcept> //Provides Try Catch Logic
+// provides EXIT_SUCCESS and EXIT_FAILURE macros
+#include <cstdlib>
+
+const uint32_t WIDTH = 800;
+const uint32_t HEIGHT = 600;
+
+class HelloTriangleApplication{
+private:
+    // GLFW window instance
+    GLFWwindow* window;
+
+    // First thing to do when initializing vulkan library is to create an instance
+    // The instance is the connection between your app and the vulkan library
+    VkInstance instance;
+
+    // Initialize GLFW and create a window
+    void initWindow() {
+        // Initializes glfw library, but it was originally designed for an OpenGL context
+        // GLFW will default to OpenGL
+        glfwInit();
+
+        // To prevent it to not create an OpenGL context we write this
+        // We are explicitly disabling OpenGL context creation
+        // Hint, API: Used to specify which graphics API the window will be created for, glfw will not initialize OpenGL
+        // Responsible for creating and managing a Vulkan instance
+        glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+        
+        // Prevent window resizing
+        glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+
+        // Create GLFW window
+        // WIDTH, HEIGHT, "WINDOW NAME", Specify which monitor, OpenGL specific
+        window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan", nullptr, nullptr);
+
+    }
+
+    bool checkExtensions() {
+
+    }
+
+    // The general pattern that object creation function params in vulkan follow is:
+    // Pointer to struct with creation info
+    // Pointer to custom allocator callbacks
+    // Pointer to the varaible that stores the handle to the new object
+    void createInstance() {
+        // Fill a struct with some information
+        // Technically optional, but it may provide some useful information to the driver in order to optimize our specific app
+        // A lot of info in vulkan is passed through structs instead of function params
+        VkApplicationInfo appInfo{};
+        // Many structs require you to explicitly specify the type
+        appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
+        appInfo.pApplicationName = "Hello Triangle";
+        appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
+        appInfo.pEngineName = "No Engine";
+        appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
+        appInfo.apiVersion = VK_API_VERSION_1_0;
+
+        // We'll have to fill in one more struct to provide sufficient info for creating an instance
+        VkInstanceCreateInfo createInfo{};
+        createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
+        createInfo.pApplicationInfo = &appInfo;
+        // GLFW has a function that returns extensions it needs to do that which we can pass to the struct
+        // Next layers specify the global extensions
+        uint32_t glfwExtensionCount = 0;
+        const char** glfwExtensions;
+        // Vulkan is a platform agnostic API, which means that you need an extension to interface with the window system
+        glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
+        createInfo.enabledExtensionCount = glfwExtensionCount;
+        createInfo.ppEnabledExtensionNames = glfwExtensions;
+        // Determine the global validation layers to enable
+        // Leave these empty for now
+        createInfo.enabledLayerCount = 0;
+
+        // Now specified everything Vulkan needs to create an instance and we can finally issue the vkCreateInstance call
+        // Creating a VKInstance object initializes the vulkan library and allows the app to pass info about itself to the implementation
+        VkResult result = vkCreateInstance(&createInfo, nullptr, &instance);
+
+        // Sometimes while running vkCreateInstance you may get an error code that is VK_ERROR_EXTENSION_NOT_PRESENT
+        // This basically means that an extension we require isn't available, we could specify the specific extension we require but
+        // If we want to check for optional functionality we can retrieve a list of supported extensions before creating an instance
+        uint32_t extensionCount = 0;
+        // You can retrieve a list of supported extensions using this function
+        // 3rd param takes a pointer to a variable that stores the nubmer of extensions and a vkExtensionProperties to store details of the extensions
+        // We can leave this param empty though to request the number of extensions
+        // The first param is optional that allows us to filter extensions by a specific validation layer
+        vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr); // Possibly redundant or unneeded?
+        // Allocate an array to hold the extension details
+        std::vector<VkExtensionProperties> extensions(extensionCount);
+        // Then we can query the extension details:
+        vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, extensions.data());
+
+        std::cout << "Available extensions:\n";
+
+        for (int i = 0; i < extensions.size(); i++) {
+            std::cout << '\t' << extensions[i].extensionName << '\n';
+        }
+        
+        // Check to see if our Vulkan instance was successfully created
+        if (result != VK_SUCCESS) {
+            throw std::runtime_error("Failed to create an instance!");
+        }
+    }
+
+    // Store and initiate each vulkan object
+    void initVulkan() {
+        // Is called on it's own to initialize vulkan
+        createInstance();
+    }
+
+    // Loop that iterates until the window is closed in a moment
+    void mainLoop() {
+        // Keep the application running until an error occurs or the window is closed
+        // While window is open
+        while (!glfwWindowShouldClose(window)) {
+            glfwPollEvents(); // Checks for events 
+        }
+    }
+
+    // Once window is is closed we'll deallocate used resources
+    // Every Vulkan object that we create needs to be destroyed when we no longer need it
+    // It is possible to perform automatic resource management using RAII or smart pointers
+    void cleanup() {
+        // Destroy vkinstance right before the program exits
+        vkDestroyInstance(instance, nullptr);
+
+        // Once the window is closed we need to clean up resources by destroying it
+        glfwDestroyWindow(window);
+
+        // Terminate GLFW
+        glfwTerminate();
+    }
+
+public:
+    // Our actual application will be ran through this
+    void run() {
+        initWindow();
+        initVulkan();
+        mainLoop();
+        cleanup();
+    }
+
+};
 
 int main() {
-    glfwInit();
-    
-    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    GLFWwindow* window = glfwCreateWindow(800, 600, "Vulkan window", nullptr, nullptr);
-    
-    uint32_t extensionCount = 0;
-    vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
-    
-    std::cout << extensionCount << " extensions supported\n";
+    HelloTriangleApplication app;
 
-    glm::mat4 matrix;
-    glm::vec4 vec;
-    auto test = matrix * vec;
-    
-    while(!glfwWindowShouldClose(window)) {
-        glfwPollEvents();
+    try {
+        app.run();
+    } catch (const std::exception& e) {
+        std::cerr << e.what() << std::endl;
+        return EXIT_FAILURE;
     }
-    
-    glfwDestroyWindow(window);
-     
-    glfwTerminate();
 
-    return 0;
+    return EXIT_SUCCESS;
 }
-    
