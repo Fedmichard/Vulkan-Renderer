@@ -1,8 +1,8 @@
 [
 {
-  "directory": "C:/Users/franc/Documents/Personal_Projects/DirectX 11/build",
-  "command": "C:\\msys64\\mingw64\\bin\\g++.exe  @CMakeFiles/directx_11.dir/includes_CXX.rsp -g -o CMakeFiles\\directx_11.dir\\src\\main.cpp.obj -c \"C:\\Users\\franc\\Documents\\Personal_Projects\\DirectX 11\\src\\main.cpp\"",
-  "file": "C:/Users/franc/Documents/Personal_Projects/DirectX 11/src/main.cpp",
+  "directory": "C:/Users/franc/Documents/Personal_Projects/Vulkan-Renderer/build",
+  "command": "C:\\msys64\\mingw64\\bin\\g++.exe  @CMakeFiles/directx_11.dir/includes_CXX.rsp -g -o CMakeFiles\\directx_11.dir\\src\\main.cpp.obj -c C:\\Users\\franc\\Documents\\Personal_Projects\\Vulkan-Renderer\\src\\main.cpp",
+  "file": "C:/Users/franc/Documents/Personal_Projects/Vulkan-Renderer/src/main.cpp",
   "output": "CMakeFiles/directx_11.dir/src/main.cpp.obj"
 }
 ]

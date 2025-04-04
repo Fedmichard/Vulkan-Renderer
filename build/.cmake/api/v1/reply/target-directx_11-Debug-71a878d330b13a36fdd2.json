@@ -114,15 +114,15 @@
 			[
 				{
 					"backtrace" : 9,
-					"path" : "C:/Users/franc/Documents/Personal_Projects/DirectX 11/includes"
+					"path" : "C:/Users/franc/Documents/Personal_Projects/Vulkan-Renderer/includes"
 				},
 				{
 					"backtrace" : 10,
-					"path" : "C:/Users/franc/Documents/Personal_Projects/DirectX 11/libraries/glm"
+					"path" : "C:/Users/franc/Documents/Personal_Projects/Vulkan-Renderer/libraries/glm"
 				},
 				{
 					"backtrace" : 11,
-					"path" : "C:/Users/franc/Documents/Personal_Projects/DirectX 11/libraries/GLFW/include"
+					"path" : "C:/Users/franc/Documents/Personal_Projects/Vulkan-Renderer/libraries/GLFW/include"
 				},
 				{
 					"backtrace" : 12,
@@ -159,7 +159,7 @@
 			},
 			{
 				"backtrace" : 2,
-				"fragment" : "-LC:\\Users\\franc\\DOCUME~1\\PERSON~1\\DIRECT~1\\LIBRAR~1\\GLFW\\lib",
+				"fragment" : "-LC:\\Users\\franc\\Documents\\Personal_Projects\\Vulkan-Renderer\\libraries\\GLFW\\lib",
 				"role" : "libraryPath"
 			},
 			{

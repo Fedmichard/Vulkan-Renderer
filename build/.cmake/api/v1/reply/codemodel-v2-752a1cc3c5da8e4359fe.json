@@ -39,7 +39,7 @@
 				{
 					"directoryIndex" : 0,
 					"id" : "directx_11::@6890427a1f51a3e7e1df",
-					"jsonFile" : "target-directx_11-Debug-c9194ceb5acd04722739.json",
+					"jsonFile" : "target-directx_11-Debug-71a878d330b13a36fdd2.json",
 					"name" : "directx_11",
 					"projectIndex" : 0
 				}
@@ -49,8 +49,8 @@
 	"kind" : "codemodel",
 	"paths" : 
 	{
-		"build" : "C:/Users/franc/Documents/Personal_Projects/DirectX 11/build",
-		"source" : "C:/Users/franc/Documents/Personal_Projects/DirectX 11"
+		"build" : "C:/Users/franc/Documents/Personal_Projects/Vulkan-Renderer/build",
+		"source" : "C:/Users/franc/Documents/Personal_Projects/Vulkan-Renderer"
 	},
 	"version" : 
 	{
