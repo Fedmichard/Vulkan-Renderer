@@ -1,3 +1,13 @@
+/* GUIDE FOR LATER
+First draw a triangle.
+Then a quad.
+Then a cube.
+Then an army of cubes.
+Then do the army of cubes with deferred rendering, forward+ rendering.
+Do some sort of occlusion culling.
+Implement picking.
+*/
+
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
@@ -7,8 +17,23 @@
 // provides EXIT_SUCCESS and EXIT_FAILURE macros
 #include <cstdlib>
 
+// unsigned 32 bit ints for the width and the height, doesn't matter just means can't be negative
 const uint32_t WIDTH = 800;
 const uint32_t HEIGHT = 600;
+
+// After the vector is initialized you cannot modify the vector itself
+// It's an array of C-style string literals, text in quotation marks that are unchangeable
+// VK_LAYER_KHRONOS_validation is the standard library included in lunarg vulkan SDK
+const std::vector<const char*> validationLayers = {
+    "VK_LAYER_KHRONOS_validation"
+};
+
+// NDEBUG macro is apart of C++ standard and it just means if the program is being compiled in debug mode or not
+#ifdef NDEBUG
+    const bool enableValidationLayers = false;
+#else  
+    const bool enableValidationLayers = true;
+#endif
 
 class HelloTriangleApplication{
 private:
@@ -40,7 +65,36 @@ private:
 
     }
 
-    bool checkExtensions() {
+    // Function that checks if all of the requested layers are available
+    bool checkValidationLayerSupport() {
+        uint32_t layerCount = 0;
+
+        // Lists all the available layers
+        vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
+    }
+
+    void checkVulkanInstanceExtensions() {
+        // Sometimes while running vkCreateInstance you may get an error code that is VK_ERROR_EXTENSION_NOT_PRESENT
+        // This basically means that an extension we require isn't available, we could specify the specific extension we require but
+        // If we want to check for optional functionality we can retrieve a list of supported extensions before creating an instance
+        uint32_t extensionCount = 0;
+
+        // You can retrieve a list of supported extensions using this function
+        // 3rd param takes a pointer to a variable that stores the nubmer of extensions and a vkExtensionProperties to store details of the extensions
+        // We can leave this param empty though to request the number of extensions
+        // The first param is optional that allows us to filter extensions by a specific validation layer
+        vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
+        // Allocate an array to hold the extension details
+        std::vector<VkExtensionProperties> extensions(extensionCount);
+        // Then we can query the extension details:
+        vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, extensions.data());
+
+        std::cout << extensionCount << " Available extensions:\n";
+
+        // Loop through all our extensions and list them
+        for (const auto &extension : extensions) {
+            std::cout << "\t" << extension.extensionName << std::endl;
+        }
 
     }
 
@@ -81,25 +135,8 @@ private:
         // Creating a VKInstance object initializes the vulkan library and allows the app to pass info about itself to the implementation
         VkResult result = vkCreateInstance(&createInfo, nullptr, &instance);
 
-        // Sometimes while running vkCreateInstance you may get an error code that is VK_ERROR_EXTENSION_NOT_PRESENT
-        // This basically means that an extension we require isn't available, we could specify the specific extension we require but
-        // If we want to check for optional functionality we can retrieve a list of supported extensions before creating an instance
-        uint32_t extensionCount = 0;
-        // You can retrieve a list of supported extensions using this function
-        // 3rd param takes a pointer to a variable that stores the nubmer of extensions and a vkExtensionProperties to store details of the extensions
-        // We can leave this param empty though to request the number of extensions
-        // The first param is optional that allows us to filter extensions by a specific validation layer
-        vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr); // Possibly redundant or unneeded?
-        // Allocate an array to hold the extension details
-        std::vector<VkExtensionProperties> extensions(extensionCount);
-        // Then we can query the extension details:
-        vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, extensions.data());
-
-        std::cout << "Available extensions:\n";
-
-        for (int i = 0; i < extensions.size(); i++) {
-            std::cout << '\t' << extensions[i].extensionName << '\n';
-        }
+        // List all available vulkan instance extensions on this system
+        checkVulkanInstanceExtensions();
         
         // Check to see if our Vulkan instance was successfully created
         if (result != VK_SUCCESS) {
