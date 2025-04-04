@@ -91,6 +91,7 @@ CMakeFiles/directx_11.dir/src/main.cpp.obj: C:/Users/franc/Documents/Personal_Pr
   C:/msys64/mingw64/include/c++/14.1.0/cstddef \
   C:/msys64/mingw64/include/c++/14.1.0/cstdio \
   C:/msys64/mingw64/include/c++/14.1.0/cstdlib \
+  C:/msys64/mingw64/include/c++/14.1.0/cstring \
   C:/msys64/mingw64/include/c++/14.1.0/cwchar \
   C:/msys64/mingw64/include/c++/14.1.0/cwctype \
   C:/msys64/mingw64/include/c++/14.1.0/debug/assertions.h \
@@ -149,6 +150,7 @@ CMakeFiles/directx_11.dir/src/main.cpp.obj: C:/Users/franc/Documents/Personal_Pr
   C:/msys64/mingw64/include/sdks/_mingw_ddk.h \
   C:/msys64/mingw64/include/sec_api/stdio_s.h \
   C:/msys64/mingw64/include/sec_api/stdlib_s.h \
+  C:/msys64/mingw64/include/sec_api/string_s.h \
   C:/msys64/mingw64/include/sec_api/sys/timeb_s.h \
   C:/msys64/mingw64/include/sec_api/wchar_s.h \
   C:/msys64/mingw64/include/signal.h \
@@ -156,6 +158,7 @@ CMakeFiles/directx_11.dir/src/main.cpp.obj: C:/Users/franc/Documents/Personal_Pr
   C:/msys64/mingw64/include/stdint.h \
   C:/msys64/mingw64/include/stdio.h \
   C:/msys64/mingw64/include/stdlib.h \
+  C:/msys64/mingw64/include/string.h \
   C:/msys64/mingw64/include/swprintf.inl \
   C:/msys64/mingw64/include/sys/timeb.h \
   C:/msys64/mingw64/include/sys/types.h \
@@ -188,9 +191,11 @@ C:/msys64/mingw64/include/stdint.h:
 
 C:/msys64/mingw64/include/stddef.h:
 
+C:/msys64/mingw64/include/sec_api/wchar_s.h:
+
 C:/msys64/mingw64/include/signal.h:
 
-C:/msys64/mingw64/include/sec_api/wchar_s.h:
+C:/msys64/mingw64/include/sec_api/string_s.h:
 
 C:/msys64/mingw64/include/sec_api/stdlib_s.h:
 
@@ -376,9 +381,9 @@ C:/VulkanSDK/1.4.309.0/Include/vulkan/vulkan_core.h:
 
 C:/msys64/mingw64/include/c++/14.1.0/bits/refwrap.h:
 
-C:/VulkanSDK/1.4.309.0/Include/vk_video/vulkan_video_codec_av1std_decode.h:
-
 C:/msys64/mingw64/include/c++/14.1.0/x86_64-w64-mingw32/bits/gthr-default.h:
+
+C:/VulkanSDK/1.4.309.0/Include/vk_video/vulkan_video_codec_av1std_decode.h:
 
 C:/msys64/mingw64/include/c++/14.1.0/bits/stl_algobase.h:
 
@@ -422,6 +427,8 @@ C:/msys64/mingw64/include/c++/14.1.0/bits/uses_allocator_args.h:
 
 C:/msys64/mingw64/include/c++/14.1.0/bits/version.h:
 
+C:/msys64/mingw64/include/string.h:
+
 C:/msys64/mingw64/include/c++/14.1.0/cstdio:
 
 C:/msys64/mingw64/include/c++/14.1.0/iosfwd:
@@ -436,13 +443,15 @@ C:/msys64/mingw64/include/c++/14.1.0/bits/streambuf_iterator.h:
 
 C:/msys64/mingw64/include/c++/14.1.0/cstddef:
 
+C:/msys64/mingw64/include/c++/14.1.0/cstring:
+
+C:/msys64/mingw64/include/c++/14.1.0/debug/assertions.h:
+
 C:/msys64/mingw64/include/c++/14.1.0/bits/move.h:
 
 C:/msys64/mingw64/include/c++/14.1.0/cwchar:
 
 C:/msys64/mingw64/include/c++/14.1.0/typeinfo:
-
-C:/msys64/mingw64/include/c++/14.1.0/debug/assertions.h:
 
 C:/msys64/mingw64/include/c++/14.1.0/stdlib.h:
 

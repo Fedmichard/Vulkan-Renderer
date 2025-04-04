@@ -89,10 +89,25 @@ private:
 
         // Now we're going to check if all the layers in validationLayers exist in our availableValidationLayers vector
         for (const char* layerName : validationLayers) {
-            
+            bool layerFound = false;
+            // For Each validation layer
+            for (const auto &layerProperties : availableValidationLayers) {
+                // For each validation layer available on our system 
+                // Compare the strings of their name (since their names are unique)
+                if (strcmp(layerName, layerProperties.layerName) == 0) {
+                    // If our requested validation layer exists, return true
+                    layerFound = true;
+                    break;
+                }
+            }
+
+            // If the layer isn't found return false
+            if (!layerFound) {
+                return false;
+            }
         }
 
-        return false;
+        return true;
     }
 
     void checkVulkanInstanceExtensions() {
@@ -125,6 +140,10 @@ private:
     // Pointer to custom allocator callbacks
     // Pointer to the varaible that stores the handle to the new object
     void createInstance() {
+        // If validation layers are enabled (non debug mode) and validation layer support is false
+        if (enableValidationLayers && !checkVulkanInstanceLayers()) {
+            throw std::runtime_error("Validation layers requested, but not available!");
+        }
         // Fill a struct with some information
         // Technically optional, but it may provide some useful information to the driver in order to optimize our specific app
         // A lot of info in vulkan is passed through structs instead of function params
@@ -150,8 +169,15 @@ private:
         createInfo.enabledExtensionCount = glfwExtensionCount;
         createInfo.ppEnabledExtensionNames = glfwExtensions;
         // Determine the global validation layers to enable
-        // Leave these empty for now
-        createInfo.enabledLayerCount = 0;
+        // if enable validation layers is true
+        if (enableValidationLayers) {
+            // We'll have 1 enabled layer count
+            createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
+            // which validation layers we'll have enabled
+            createInfo.ppEnabledLayerNames = validationLayers.data();
+        } else {
+            createInfo.enabledLayerCount = 0;
+        }
 
         // Now specified everything Vulkan needs to create an instance and we can finally issue the vkCreateInstance call
         // Creating a VKInstance object initializes the vulkan library and allows the app to pass info about itself to the implementation

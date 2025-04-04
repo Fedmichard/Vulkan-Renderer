@@ -162,4 +162,7 @@ CMakeFiles/directx_11.dir/src/main.cpp.obj: \
  C:/msys64/mingw64/include/c++/14.1.0/bits/stl_uninitialized.h \
  C:/msys64/mingw64/include/c++/14.1.0/bits/stl_vector.h \
  C:/msys64/mingw64/include/c++/14.1.0/bits/stl_bvector.h \
- C:/msys64/mingw64/include/c++/14.1.0/bits/vector.tcc
+ C:/msys64/mingw64/include/c++/14.1.0/bits/vector.tcc \
+ C:/msys64/mingw64/include/c++/14.1.0/cstring \
+ C:/msys64/mingw64/include/string.h \
+ C:/msys64/mingw64/include/sec_api/string_s.h

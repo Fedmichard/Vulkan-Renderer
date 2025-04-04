@@ -92,6 +92,7 @@ CMakeFiles/directx_11.dir/src/main.cpp.obj
  C:/msys64/mingw64/include/c++/14.1.0/cstddef
  C:/msys64/mingw64/include/c++/14.1.0/cstdio
  C:/msys64/mingw64/include/c++/14.1.0/cstdlib
+ C:/msys64/mingw64/include/c++/14.1.0/cstring
  C:/msys64/mingw64/include/c++/14.1.0/cwchar
  C:/msys64/mingw64/include/c++/14.1.0/cwctype
  C:/msys64/mingw64/include/c++/14.1.0/debug/assertions.h
@@ -150,6 +151,7 @@ CMakeFiles/directx_11.dir/src/main.cpp.obj
  C:/msys64/mingw64/include/sdks/_mingw_ddk.h
  C:/msys64/mingw64/include/sec_api/stdio_s.h
  C:/msys64/mingw64/include/sec_api/stdlib_s.h
+ C:/msys64/mingw64/include/sec_api/string_s.h
  C:/msys64/mingw64/include/sec_api/sys/timeb_s.h
  C:/msys64/mingw64/include/sec_api/wchar_s.h
  C:/msys64/mingw64/include/signal.h
@@ -157,6 +159,7 @@ CMakeFiles/directx_11.dir/src/main.cpp.obj
  C:/msys64/mingw64/include/stdint.h
  C:/msys64/mingw64/include/stdio.h
  C:/msys64/mingw64/include/stdlib.h
+ C:/msys64/mingw64/include/string.h
  C:/msys64/mingw64/include/swprintf.inl
  C:/msys64/mingw64/include/sys/timeb.h
  C:/msys64/mingw64/include/sys/types.h
