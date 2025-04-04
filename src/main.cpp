@@ -16,6 +16,7 @@ Implement picking.
 #include <stdexcept> //Provides Try Catch Logic
 // provides EXIT_SUCCESS and EXIT_FAILURE macros
 #include <cstdlib>
+#include <cstring>
 
 // unsigned 32 bit ints for the width and the height, doesn't matter just means can't be negative
 const uint32_t WIDTH = 800;
@@ -24,6 +25,7 @@ const uint32_t HEIGHT = 600;
 // After the vector is initialized you cannot modify the vector itself
 // It's an array of C-style string literals, text in quotation marks that are unchangeable
 // VK_LAYER_KHRONOS_validation is the standard library included in lunarg vulkan SDK
+// A long list of individual validation layers
 const std::vector<const char*> validationLayers = {
     "VK_LAYER_KHRONOS_validation"
 };
@@ -66,11 +68,31 @@ private:
     }
 
     // Function that checks if all of the requested layers are available
-    bool checkValidationLayerSupport() {
+    // Same process for checking if requested instance extensions are available
+    bool checkVulkanInstanceLayers() {
+        // unsigned 32 bit int used to retrieve count of available layers
         uint32_t layerCount = 0;
 
-        // Lists all the available layers
+        // updates our layer count based on what is available on our system
         vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
+        // Vector to hold all the available vkInstanceLayerProperties
+        std::vector<VkLayerProperties> availableValidationLayers(layerCount);
+        // Then we'll run it again to actually update our layer vector
+        vkEnumerateInstanceLayerProperties(&layerCount, availableValidationLayers.data());
+
+        // Same loop
+        std::cout << layerCount << " Available layers:" << std::endl;
+
+        for (const auto &layer : availableValidationLayers) {
+            std::cout << "\t" << layer.layerName << std::endl;
+        }
+
+        // Now we're going to check if all the layers in validationLayers exist in our availableValidationLayers vector
+        for (const char* layerName : validationLayers) {
+            
+        }
+
+        return false;
     }
 
     void checkVulkanInstanceExtensions() {
@@ -89,7 +111,7 @@ private:
         // Then we can query the extension details:
         vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, extensions.data());
 
-        std::cout << extensionCount << " Available extensions:\n";
+        std::cout << extensionCount << " Available extensions:" << std::endl;
 
         // Loop through all our extensions and list them
         for (const auto &extension : extensions) {
@@ -137,6 +159,9 @@ private:
 
         // List all available vulkan instance extensions on this system
         checkVulkanInstanceExtensions();
+
+        // List all available validation layers on this system
+        checkVulkanInstanceLayers();
         
         // Check to see if our Vulkan instance was successfully created
         if (result != VK_SUCCESS) {
