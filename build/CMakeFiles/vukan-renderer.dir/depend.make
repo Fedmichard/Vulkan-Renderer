@@ -1,2 +1,2 @@
-# Empty dependencies file for directx_11.
+# Empty dependencies file for vukan-renderer.
 # This may be replaced when dependencies are built.

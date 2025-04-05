@@ -4,7 +4,7 @@
 # compile CXX with C:/msys64/mingw64/bin/g++.exe
 CXX_DEFINES = 
 
-CXX_INCLUDES = @CMakeFiles/directx_11.dir/includes_CXX.rsp
+CXX_INCLUDES = @CMakeFiles/vukan-renderer.dir/includes_CXX.rsp
 
 CXX_FLAGS = -g
 

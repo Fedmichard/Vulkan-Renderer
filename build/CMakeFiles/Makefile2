@@ -62,7 +62,7 @@ CMAKE_BINARY_DIR = C:\Users\franc\Documents\Personal_Projects\Vulkan-Renderer\bu
 # Directory level rules for the build root directory
 
 # The main recursive "all" target.
-all: CMakeFiles/directx_11.dir/all
+all: CMakeFiles/vukan-renderer.dir/all
 .PHONY : all
 
 # The main recursive "preinstall" target.
@@ -70,34 +70,34 @@ preinstall:
 .PHONY : preinstall
 
 # The main recursive "clean" target.
-clean: CMakeFiles/directx_11.dir/clean
+clean: CMakeFiles/vukan-renderer.dir/clean
 .PHONY : clean
 
 #=============================================================================
-# Target rules for target CMakeFiles/directx_11.dir
+# Target rules for target CMakeFiles/vukan-renderer.dir
 
 # All Build rule for target.
-CMakeFiles/directx_11.dir/all:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\directx_11.dir\build.make CMakeFiles/directx_11.dir/depend
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\directx_11.dir\build.make CMakeFiles/directx_11.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=C:\Users\franc\Documents\Personal_Projects\Vulkan-Renderer\build\CMakeFiles --progress-num=1,2 "Built target directx_11"
-.PHONY : CMakeFiles/directx_11.dir/all
+CMakeFiles/vukan-renderer.dir/all:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\vukan-renderer.dir\build.make CMakeFiles/vukan-renderer.dir/depend
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\vukan-renderer.dir\build.make CMakeFiles/vukan-renderer.dir/build
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=C:\Users\franc\Documents\Personal_Projects\Vulkan-Renderer\build\CMakeFiles --progress-num=1,2 "Built target vukan-renderer"
+.PHONY : CMakeFiles/vukan-renderer.dir/all
 
 # Build rule for subdir invocation for target.
-CMakeFiles/directx_11.dir/rule: cmake_check_build_system
+CMakeFiles/vukan-renderer.dir/rule: cmake_check_build_system
 	$(CMAKE_COMMAND) -E cmake_progress_start C:\Users\franc\Documents\Personal_Projects\Vulkan-Renderer\build\CMakeFiles 2
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\Makefile2 CMakeFiles/directx_11.dir/all
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\Makefile2 CMakeFiles/vukan-renderer.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start C:\Users\franc\Documents\Personal_Projects\Vulkan-Renderer\build\CMakeFiles 0
-.PHONY : CMakeFiles/directx_11.dir/rule
+.PHONY : CMakeFiles/vukan-renderer.dir/rule
 
 # Convenience name for target.
-directx_11: CMakeFiles/directx_11.dir/rule
-.PHONY : directx_11
+vukan-renderer: CMakeFiles/vukan-renderer.dir/rule
+.PHONY : vukan-renderer
 
 # clean rule for target.
-CMakeFiles/directx_11.dir/clean:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\directx_11.dir\build.make CMakeFiles/directx_11.dir/clean
-.PHONY : CMakeFiles/directx_11.dir/clean
+CMakeFiles/vukan-renderer.dir/clean:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\vukan-renderer.dir\build.make CMakeFiles/vukan-renderer.dir/clean
+.PHONY : CMakeFiles/vukan-renderer.dir/clean
 
 #=============================================================================
 # Special targets to cleanup operation of make.

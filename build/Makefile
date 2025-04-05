@@ -116,24 +116,24 @@ depend:
 .PHONY : depend
 
 #=============================================================================
-# Target rules for targets named directx_11
+# Target rules for targets named vukan-renderer
 
 # Build rule for target.
-directx_11: cmake_check_build_system
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\Makefile2 directx_11
-.PHONY : directx_11
+vukan-renderer: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\Makefile2 vukan-renderer
+.PHONY : vukan-renderer
 
 # fast build rule for target.
-directx_11/fast:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\directx_11.dir\build.make CMakeFiles/directx_11.dir/build
-.PHONY : directx_11/fast
+vukan-renderer/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\vukan-renderer.dir\build.make CMakeFiles/vukan-renderer.dir/build
+.PHONY : vukan-renderer/fast
 
 src/main.obj: src/main.cpp.obj
 .PHONY : src/main.obj
 
 # target to build an object file
 src/main.cpp.obj:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\directx_11.dir\build.make CMakeFiles/directx_11.dir/src/main.cpp.obj
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\vukan-renderer.dir\build.make CMakeFiles/vukan-renderer.dir/src/main.cpp.obj
 .PHONY : src/main.cpp.obj
 
 src/main.i: src/main.cpp.i
@@ -141,7 +141,7 @@ src/main.i: src/main.cpp.i
 
 # target to preprocess a source file
 src/main.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\directx_11.dir\build.make CMakeFiles/directx_11.dir/src/main.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\vukan-renderer.dir\build.make CMakeFiles/vukan-renderer.dir/src/main.cpp.i
 .PHONY : src/main.cpp.i
 
 src/main.s: src/main.cpp.s
@@ -149,7 +149,7 @@ src/main.s: src/main.cpp.s
 
 # target to generate assembly for a file
 src/main.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\directx_11.dir\build.make CMakeFiles/directx_11.dir/src/main.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\vukan-renderer.dir\build.make CMakeFiles/vukan-renderer.dir/src/main.cpp.s
 .PHONY : src/main.cpp.s
 
 # Help Target
@@ -160,7 +160,7 @@ help:
 	@echo ... depend
 	@echo ... edit_cache
 	@echo ... rebuild_cache
-	@echo ... directx_11
+	@echo ... vukan-renderer
 	@echo ... src/main.obj
 	@echo ... src/main.i
 	@echo ... src/main.s

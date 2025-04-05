@@ -46,6 +46,9 @@ private:
     // The instance is the connection between your app and the vulkan library
     VkInstance instance;
 
+    // Managed with a callback that needs to be explicitly created and destroyed
+    VkDebugUtilsMessengerEXT debugMessenger;
+
     // Initialize GLFW and create a window
     void initWindow() {
         // Initializes glfw library, but it was originally designed for an OpenGL context
@@ -65,6 +68,37 @@ private:
         // WIDTH, HEIGHT, "WINDOW NAME", Specify which monitor, OpenGL specific
         window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan", nullptr, nullptr);
 
+    }
+
+    // Setting up a callback function to handle messages and its associated details
+    // Will return a vector of c-style string literals
+    // The extensions specified by GLFW are always going to be required
+    std::vector<const char*> getRequiredExtensions() {
+        // GLFW has a function that returns extensions it needs to do that which we can pass to the struct
+        // Next layers specify the global extensions
+        // retrieve count of available glfw extensions
+        uint32_t glfwExtensionCount = 0;
+        // return the vulkan instance extensions that glfw require
+        // Points to an array of c-style strings
+        const char** glfwExtensions;
+        // Vulkan is a platform agnostic API, which means that you need an extension to interface with the window system
+        // glfwGetRequiredInstanceExtensions returns an array of c-style strings
+        glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
+
+        // Range constructor of std::vector
+        // Glfw is pointer that points to the start of an array of c-style string literals
+        // Points to the beginning of glfwExtensions array and 1 element past it
+        // Extension count is updated by glfwGetRequiredInstanceExtensions to return a number
+        // since we start count at 0 and not 1 that number is going to be 1 over
+        std::vector<const char*> extensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
+
+        // If valdiation layers are enabled
+        if (enableValidationLayers) {
+            // VK_EXT_DEBUG_UTILS_EXTENSION_NAME is a macro that is literal string "VK_EXT_debug_utils"
+            extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+        }
+
+        return extensions;
     }
 
     // Function that checks if all of the requested layers are available
@@ -135,39 +169,65 @@ private:
 
     }
 
+    /*
+        Static meaning it's only visible within the current source file it is defined (can't be accessed by other cpp files)
+        VKAPI_ATTR Essentially ensures that the function is exported corectly for the vulkan api to call it
+        VkBool32 is the return type it is a bool value of 32 bits (0 or 1)
+        VKAPI_CALL is another predefined macro it specifies the calling convention the function will use
+        Ensures vulkan call back functions are called correctly
+        The vulkan validation layers and driver will call this function whenver they have a message (error, warning, informational)
+    */
+    static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageServerity,
+        VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
+        void* pUserData) {
+            /*
+                VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity indicates message severity (verbose, info, warning, error)
+                Message severity is setup in a way that you can check which one is worse then one another (the enums have # values)
+                VkDebugUtilsMessageTypeFlagsEXT messageType indicates category of message (general, validation - violates specification or possible mistake, performance - potentially non optimal use of vulkan)
+                const VkDebugUtilsMessengerCallbackDataFlagsEXT* pCallBackData a pointer to struct containing detailed info about message
+                Important members are:
+                    pMessage: The debug message as a null-terminated string
+                    pObjects: Array of Vulkan object handles related to the message
+                    objectCount: Number of Objects in array
+                Void* pUserData user defined pointer that you can specify when setting up the debug messenger. Allows you to pass custom data to callback
+            */
+
+            std::cerr << "Validation Layer: " << pCallbackData->pMessage << std::endl;
+
+            return VK_FALSE;
+    }
+
     // The general pattern that object creation function params in vulkan follow is:
     // Pointer to struct with creation info
     // Pointer to custom allocator callbacks
     // Pointer to the varaible that stores the handle to the new object
     void createInstance() {
         // If validation layers are enabled (non debug mode) and validation layer support is false
+        // List all available validation layers on this system
         if (enableValidationLayers && !checkVulkanInstanceLayers()) {
             throw std::runtime_error("Validation layers requested, but not available!");
         }
+
         // Fill a struct with some information
         // Technically optional, but it may provide some useful information to the driver in order to optimize our specific app
         // A lot of info in vulkan is passed through structs instead of function params
-        VkApplicationInfo appInfo{};
+        VkApplicationInfo appInfo{}; // set all of the default values of appInfo
         // Many structs require you to explicitly specify the type
-        appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-        appInfo.pApplicationName = "Hello Triangle";
-        appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
-        appInfo.pEngineName = "No Engine";
-        appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
-        appInfo.apiVersion = VK_API_VERSION_1_0;
+        appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO; // structure type is an application info type, Has a list of VkStructureType enums
+        appInfo.pApplicationName = "Hello Triangle"; // name of our application
+        appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0); // it's version
+        appInfo.pEngineName = "No Engine"; // The name of our engine
+        appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0); // the version of our engine
+        appInfo.apiVersion = VK_API_VERSION_1_0; // The api version
 
         // We'll have to fill in one more struct to provide sufficient info for creating an instance
         VkInstanceCreateInfo createInfo{};
         createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
         createInfo.pApplicationInfo = &appInfo;
-        // GLFW has a function that returns extensions it needs to do that which we can pass to the struct
-        // Next layers specify the global extensions
-        uint32_t glfwExtensionCount = 0;
-        const char** glfwExtensions;
-        // Vulkan is a platform agnostic API, which means that you need an extension to interface with the window system
-        glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
-        createInfo.enabledExtensionCount = glfwExtensionCount;
-        createInfo.ppEnabledExtensionNames = glfwExtensions;
+        auto extensions = getRequiredExtensions();
+        createInfo.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
+        createInfo.ppEnabledExtensionNames = extensions.data();
+
         // Determine the global validation layers to enable
         // if enable validation layers is true
         if (enableValidationLayers) {
@@ -177,7 +237,7 @@ private:
             createInfo.ppEnabledLayerNames = validationLayers.data();
         } else {
             createInfo.enabledLayerCount = 0;
-        }
+        }        
 
         // Now specified everything Vulkan needs to create an instance and we can finally issue the vkCreateInstance call
         // Creating a VKInstance object initializes the vulkan library and allows the app to pass info about itself to the implementation
@@ -186,19 +246,32 @@ private:
         // List all available vulkan instance extensions on this system
         checkVulkanInstanceExtensions();
 
-        // List all available validation layers on this system
-        checkVulkanInstanceLayers();
-        
         // Check to see if our Vulkan instance was successfully created
         if (result != VK_SUCCESS) {
             throw std::runtime_error("Failed to create an instance!");
         }
     }
 
+    void setUpDebugMessenger() {
+        if (!enableValidationLayers) return;
+
+        VkDebugUtilsMessengerCreateInfoEXT createInfo{};
+        createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+        createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT |
+                                     VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
+                                     VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+        createInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
+                                  VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
+                                 VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+        createInfo.pfnUserCallback = debugCallback;
+        createInfo.pUserData = nullptr; 
+    }
+
     // Store and initiate each vulkan object
     void initVulkan() {
         // Is called on it's own to initialize vulkan
         createInstance();
+        setUpDebugMessenger();
     }
 
     // Loop that iterates until the window is closed in a moment

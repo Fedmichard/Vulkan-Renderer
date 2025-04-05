@@ -1,4 +1,4 @@
-CMakeFiles/directx_11.dir/src/main.cpp.obj: \
+CMakeFiles/vukan-renderer.dir/src/main.cpp.obj: \
  C:\Users\franc\Documents\Personal_Projects\Vulkan-Renderer\src\main.cpp \
  C:/Users/franc/Documents/Personal_Projects/Vulkan-Renderer/libraries/GLFW/include/GLFW/glfw3.h \
  C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/14.1.0/include/stddef.h \

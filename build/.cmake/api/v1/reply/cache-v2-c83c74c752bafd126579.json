@@ -155,10 +155,10 @@
 				},
 				{
 					"name" : "HELPSTRING",
-					"value" : "CXX compiler"
+					"value" : "No help, variable specified on the command line."
 				}
 			],
-			"type" : "STRING",
+			"type" : "FILEPATH",
 			"value" : "C:/msys64/mingw64/bin/g++.exe"
 		},
 		{
@@ -299,10 +299,10 @@
 				},
 				{
 					"name" : "HELPSTRING",
-					"value" : "C compiler"
+					"value" : "No help, variable specified on the command line."
 				}
 			],
-			"type" : "STRING",
+			"type" : "FILEPATH",
 			"value" : "C:/msys64/mingw64/bin/gcc.exe"
 		},
 		{
@@ -659,7 +659,7 @@
 				}
 			],
 			"type" : "PATH",
-			"value" : "C:/Program Files (x86)/directx_11"
+			"value" : "C:/Program Files (x86)/vukan-renderer"
 		},
 		{
 			"name" : "CMAKE_LINKER",
@@ -879,7 +879,7 @@
 				}
 			],
 			"type" : "STATIC",
-			"value" : "directx_11"
+			"value" : "vukan-renderer"
 		},
 		{
 			"name" : "CMAKE_RANLIB",
@@ -1286,7 +1286,7 @@
 			"value" : "TRUE"
 		},
 		{
-			"name" : "directx_11_BINARY_DIR",
+			"name" : "vukan-renderer_BINARY_DIR",
 			"properties" : 
 			[
 				{
@@ -1298,7 +1298,7 @@
 			"value" : "C:/Users/franc/Documents/Personal_Projects/Vulkan-Renderer/build"
 		},
 		{
-			"name" : "directx_11_IS_TOP_LEVEL",
+			"name" : "vukan-renderer_IS_TOP_LEVEL",
 			"properties" : 
 			[
 				{
@@ -1310,7 +1310,7 @@
 			"value" : "ON"
 		},
 		{
-			"name" : "directx_11_SOURCE_DIR",
+			"name" : "vukan-renderer_SOURCE_DIR",
 			"properties" : 
 			[
 				{
