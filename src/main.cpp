@@ -257,14 +257,21 @@ private:
 
         VkDebugUtilsMessengerCreateInfoEXT createInfo{};
         createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+        // All the message severity's I want my callback to be called for
         createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT |
                                      VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
                                      VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+        // All the messages I want my callback to be notified for (enabled all of them)
         createInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
                                   VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
                                  VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+        // Specifies pointer to our callback function
+        // You could optionally pass a pointer here which will be passed along to the callback function
         createInfo.pfnUserCallback = debugCallback;
-        createInfo.pUserData = nullptr; 
+        createInfo.pUserData = nullptr; // optional
+
+        // This function is not automatically loaded because it is an extension function
+        VkResult result;
     }
 
     // Store and initiate each vulkan object
