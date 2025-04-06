@@ -13,6 +13,7 @@ Implement picking.
 
 #include <iostream>
 #include <vector>
+#include <map>
 #include <stdexcept> //Provides Try Catch Logic
 // provides EXIT_SUCCESS and EXIT_FAILURE macros
 #include <cstdlib>
@@ -38,9 +39,11 @@ const std::vector<const char*> validationLayers = {
 #endif
 
 // A seperate function for actually creating the Debug Messenger
+// The debug messenger will issue a message to the debug callback when an event of interest occurs
 VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
                                       const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger) {
     // vkGetInstanceProcAddr will return nullptr if the function couldn't be loaded because we are looking for the address of vkCreateDebugUtilsMessengerEXT
+    // Essentially a loader function that is crucial for using extension functions in vulkan
     auto func = (PFN_vkCreateDebugUtilsMessengerEXT) vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
 
     if (func != nullptr) {
@@ -71,6 +74,9 @@ private:
 
     // Managed with a callback that needs to be explicitly created and destroyed
     VkDebugUtilsMessengerEXT debugMessenger;
+
+    // Will be implicitly destroyed when VkInstance is destroyed
+    VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
 
     // Initialize GLFW and create a window
     void initWindow() {
@@ -220,6 +226,83 @@ private:
             return VK_FALSE;
     }
 
+    // Information about for our debug messenger
+    // The kind of message severity's I want to be detected as well as the types of messages
+    void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo) {
+        createInfo = {};
+        createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+        // All the message severity's I want my callback to be called for
+        createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT |
+                                     VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
+                                     VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+        // All the messages I want my callback to be notified for (enabled all of them)
+        createInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
+                                  VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
+                                 VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+        createInfo.pfnUserCallback = debugCallback;
+        createInfo.pUserData = nullptr; // optional
+    }
+
+    // Checking if each device is suitable for vulkan
+    bool isDeviceSuitable(VkPhysicalDevice device) {
+        // To evaluate the suitability of a device we can start by querying for some details
+        // To query basic device properties (name, type, and supported vulkan version) can be queried using vkGetPhysicalDeviceProperties
+        VkPhysicalDeviceProperties deviceProperties;
+        vkGetPhysicalDeviceProperties(device, &deviceProperties);
+        // To query for optional features like texture compression, 64 bit floats and multi viewport rendering (for vr) can be queried with this
+        VkPhysicalDeviceFeatures deviceFeatures;
+        vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
+
+        return true;
+    }
+
+    // Store and initiate each vulkan object
+    void initVulkan() {
+        // Is called on it's own to initialize vulkan
+        createInstance();
+        setUpDebugMessenger();
+        pickPhysicalDevice();
+    }
+
+    // After intializing the vulkan library through a vkInstance we need to look for and select a graphics card
+    void pickPhysicalDevice() {
+        uint32_t deviceCount = 0;
+        vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
+
+        if (deviceCount == 0) {
+            throw std::runtime_error("Failed to find GPUs with Vulkan support!");
+        }
+
+        std::vector<VkPhysicalDevice> devices(deviceCount);
+        vkEnumeratePhysicalDevices(instance, &deviceCount, devices.data());
+
+        // This function right now only picks the very first physical device (integrated or dedicated)
+        for (const auto& device : devices) {
+            if (isDeviceSuitable(device)) {
+                physicalDevice = device;
+                break;
+            }
+        }
+
+        if (physicalDevice == VK_NULL_HANDLE) {
+            throw std::runtime_error("Failed to find a suitable GPU!");
+        }
+    }
+
+    // Our debug messenger essentially acts as the central hub for all of our
+    void setUpDebugMessenger() {
+        if (!enableValidationLayers) return;
+
+        VkDebugUtilsMessengerCreateInfoEXT createInfo;
+        populateDebugMessengerCreateInfo(createInfo);
+
+        // This function is not automatically loaded because it is an extension function
+        // The debug messenger is specific to our Vulkan instance and its layers, it needs to be explicitly specified as first arugment
+        if (CreateDebugUtilsMessengerEXT(instance, &createInfo, nullptr, &debugMessenger) != VK_SUCCESS) {
+            throw std::runtime_error("Failed to set up debug messenger!");
+        }
+    }
+
     // The general pattern that object creation function params in vulkan follow is:
     // Pointer to struct with creation info
     // Pointer to custom allocator callbacks
@@ -282,41 +365,6 @@ private:
         }
     }
 
-    void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo) {
-        createInfo = {};
-        createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
-        // All the message severity's I want my callback to be called for
-        createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT |
-                                     VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
-                                     VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
-        // All the messages I want my callback to be notified for (enabled all of them)
-        createInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
-                                  VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
-                                 VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
-        createInfo.pfnUserCallback = debugCallback;
-        createInfo.pUserData = nullptr; // optional
-    }
-
-    void setUpDebugMessenger() {
-        if (!enableValidationLayers) return;
-
-        VkDebugUtilsMessengerCreateInfoEXT createInfo;
-        populateDebugMessengerCreateInfo(createInfo);
-
-        // This function is not automatically loaded because it is an extension function
-        // The debug messenger is specific to our Vulkan instance and its layers, it needs to be explicitly specified as first arugment
-        if (CreateDebugUtilsMessengerEXT(instance, &createInfo, nullptr, &debugMessenger) != VK_SUCCESS) {
-            throw std::runtime_error("Failed to set up debug messenger!");
-        }
-    }
-
-    // Store and initiate each vulkan object
-    void initVulkan() {
-        // Is called on it's own to initialize vulkan
-        createInstance();
-        setUpDebugMessenger();
-    }
-
     // Loop that iterates until the window is closed in a moment
     void mainLoop() {
         // Keep the application running until an error occurs or the window is closed
@@ -331,7 +379,7 @@ private:
     // It is possible to perform automatic resource management using RAII or smart pointers
     void cleanup() {
         if (enableValidationLayers) {
-            // DestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
+            DestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
         }
         // Destroy vkinstance right before the program exits
         vkDestroyInstance(instance, nullptr);
