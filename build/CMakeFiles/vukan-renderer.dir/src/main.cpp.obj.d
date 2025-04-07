@@ -163,6 +163,13 @@ CMakeFiles/vukan-renderer.dir/src/main.cpp.obj: \
  C:/msys64/mingw64/include/c++/14.1.0/bits/stl_vector.h \
  C:/msys64/mingw64/include/c++/14.1.0/bits/stl_bvector.h \
  C:/msys64/mingw64/include/c++/14.1.0/bits/vector.tcc \
+ C:/msys64/mingw64/include/c++/14.1.0/map \
+ C:/msys64/mingw64/include/c++/14.1.0/bits/stl_tree.h \
+ C:/msys64/mingw64/include/c++/14.1.0/ext/aligned_buffer.h \
+ C:/msys64/mingw64/include/c++/14.1.0/bits/node_handle.h \
+ C:/msys64/mingw64/include/c++/14.1.0/bits/stl_map.h \
+ C:/msys64/mingw64/include/c++/14.1.0/bits/stl_multimap.h \
+ C:/msys64/mingw64/include/c++/14.1.0/bits/erase_if.h \
  C:/msys64/mingw64/include/c++/14.1.0/cstring \
  C:/msys64/mingw64/include/string.h \
  C:/msys64/mingw64/include/sec_api/string_s.h
