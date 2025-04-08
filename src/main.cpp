@@ -12,6 +12,7 @@ Implement picking.
 #include <GLFW/glfw3.h>
 
 #include <iostream>
+#include <optional>
 #include <vector>
 #include <map>
 #include <stdexcept> //Provides Try Catch Logic
@@ -26,9 +27,9 @@ const uint32_t HEIGHT = 600;
 // After the vector is initialized you cannot modify the vector itself
 // It's an array of C-style string literals, text in quotation marks that are unchangeable
 // VK_LAYER_KHRONOS_validation is the standard library included in lunarg vulkan SDK
-// A long list of individual validation layers
+// This vector is long list of individual validation layers
 const std::vector<const char*> validationLayers = {
-    "VK_LAYER_KHRONOS_validation"
+    "VK_LAYER_KHRONOS_validation" // Right now we're only getting this one validation layer for tht catches common vulkan usage errors
 };
 
 // NDEBUG macro is apart of C++ standard and it just means if the program is being compiled in debug mode or not
@@ -102,6 +103,7 @@ private:
     // Setting up a callback function to handle messages and its associated details
     // Will return a vector of c-style string literals
     // The extensions specified by GLFW are always going to be required
+    // GLFW is not a vulkan extension so we have to retrieve it like this so that we may use it with our vulkan app
     std::vector<const char*> getRequiredExtensions() {
         // GLFW has a function that returns extensions it needs to do that which we can pass to the struct
         // Next layers specify the global extensions
@@ -256,6 +258,47 @@ private:
         return true;
     }
 
+    /*
+        Bundles all of our queue family indices
+        Each queue family on physical device is given a unique index (unint32_t)
+        Vulkan is designed for parallelism, by having multiple queuees you can submit different types of work to the gpu concurrently
+    */
+    struct QueueFamilyIndices {
+        /*
+            The first queue family we're going to need is the graphicsFamily queue family represented by some uint32_t that we'll define later
+            We can use the std::optional wrapper which contains no value until we assign something to it
+            We can query it at any point using .has_value() function
+            This is just to help dictate whether or not this queue family was available(found)
+            This is necessary because sometimes we may prefer devices but not necessarily require it
+        */
+        std::optional<uint32_t> graphicsFamily;
+
+        // Once again we'll use the same steps we used for getting validation layers, devices, 
+    };
+    
+    /*
+        Any operation done using vulkan needs to be submitted to a queue
+        There are different kinds of queues from different queue families
+        Each family of queue only allows a subset of commands like one family may only process compute commands
+        We need to find out all the queue families that are compatible with our selected physical device
+        Used to be a uint32_t
+    */
+    QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device) {
+        // Right now we're only going to look for a queue that supports graphics commands
+        QueueFamilyIndices indices;
+
+        // We're looking for all the queue families available on my system
+        uint32_t queueFamilyCount = 0;
+        vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
+
+        std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
+        vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamilies.data());
+
+        // We need to find at least one queue family that supports VK_QUEUE_GRAPHICS_BIT
+
+        return indices;
+    }
+
     // Store and initiate each vulkan object
     void initVulkan() {
         // Is called on it's own to initialize vulkan
@@ -303,10 +346,12 @@ private:
         }
     }
 
-    // The general pattern that object creation function params in vulkan follow is:
-    // Pointer to struct with creation info
-    // Pointer to custom allocator callbacks
-    // Pointer to the varaible that stores the handle to the new object
+    /*
+        The general pattern that object creation function params in vulkan follow is:
+        Pointer to struct with creation info
+        Pointer to custom allocator callbacks
+        Pointer to the varaible that stores the handle to the new object
+    */
     void createInstance() {
         // If validation layers are enabled (non debug mode) and validation layer support is false
         // List all available validation layers on this system

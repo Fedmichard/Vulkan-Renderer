@@ -158,6 +158,8 @@ CMakeFiles/vukan-renderer.dir/src/main.cpp.obj: \
  C:/msys64/mingw64/include/c++/14.1.0/bits/ostream.tcc \
  C:/msys64/mingw64/include/c++/14.1.0/istream \
  C:/msys64/mingw64/include/c++/14.1.0/bits/istream.tcc \
+ C:/msys64/mingw64/include/c++/14.1.0/optional \
+ C:/msys64/mingw64/include/c++/14.1.0/bits/enable_special_members.h \
  C:/msys64/mingw64/include/c++/14.1.0/vector \
  C:/msys64/mingw64/include/c++/14.1.0/bits/stl_uninitialized.h \
  C:/msys64/mingw64/include/c++/14.1.0/bits/stl_vector.h \
