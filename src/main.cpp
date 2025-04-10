@@ -79,6 +79,9 @@ private:
     // Will be implicitly destroyed when VkInstance is destroyed
     VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
 
+    // Logical device
+    VkDevice device;
+
     // Initialize GLFW and create a window
     void initWindow() {
         // Initializes glfw library, but it was originally designed for an OpenGL context
@@ -247,6 +250,7 @@ private:
 
     // Checking if each device is suitable for vulkan
     bool isDeviceSuitable(VkPhysicalDevice device) {
+        /*
         // To evaluate the suitability of a device we can start by querying for some details
         // To query basic device properties (name, type, and supported vulkan version) can be queried using vkGetPhysicalDeviceProperties
         VkPhysicalDeviceProperties deviceProperties;
@@ -254,8 +258,11 @@ private:
         // To query for optional features like texture compression, 64 bit floats and multi viewport rendering (for vr) can be queried with this
         VkPhysicalDeviceFeatures deviceFeatures;
         vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
+        */
 
-        return true;
+        QueueFamilyIndices indices = findQueueFamilies(device);
+
+        return indices.isComplete();
     }
 
     /*
@@ -273,7 +280,9 @@ private:
         */
         std::optional<uint32_t> graphicsFamily;
 
-        // Once again we'll use the same steps we used for getting validation layers, devices, 
+        bool isComplete() {
+            return graphicsFamily.has_value();
+        }
     };
     
     /*
@@ -292,9 +301,24 @@ private:
         vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
 
         std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
+        // Has some info such as the type of operations supported and the number of queues that can be created
+        // With the queue families from our device we're looking for all the ones that support VK_QUEUE_GRAPHICS_BIT so we can add to our indicies perhaps?
         vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamilies.data());
 
         // We need to find at least one queue family that supports VK_QUEUE_GRAPHICS_BIT
+        int i = 0;
+        // If the queue family the index is currently on supports VK_QUEUE_GRAPHICS_BIT we will set our graphicsFamily index to that
+        for (const auto& queueFamily : queueFamilies) {
+            if (queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
+                indices.graphicsFamily = i;
+            }
+
+            if (indices.isComplete()) {
+                break;
+            }
+
+            i++;
+        }
 
         return indices;
     }
@@ -305,6 +329,13 @@ private:
         createInstance();
         setUpDebugMessenger();
         pickPhysicalDevice();
+        createLogicalDevice();
+    }
+
+    // After we select our physical device, we need to set up a logical device to interface with it
+    void createLogicalDevice() {
+        // Describes the features we want to use as well as the queues to create now that we've queried which ones are available
+        QueueFamilyIndices indices = findQueueFamilies(physicalDevice);
     }
 
     // After intializing the vulkan library through a vkInstance we need to look for and select a graphics card
