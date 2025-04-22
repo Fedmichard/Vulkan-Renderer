@@ -336,6 +336,15 @@ private:
     void createLogicalDevice() {
         // Describes the features we want to use as well as the queues to create now that we've queried which ones are available
         QueueFamilyIndices indices = findQueueFamilies(physicalDevice);
+
+        VkDeviceQueueCreateInfo queueCreateInfo{};
+        queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+        queueCreateInfo.queueFamilyIndex = indices.graphicsFamily.value();
+        queueCreateInfo.queueCount = 1;
+
+        // Vulkan requires you to assign priorities to queues to influence scheduling of command buffer execution even if there's only 1 queue
+        float queuePriority = 1.0f;
+        queueCreateInfo.pQueuePriorities = &queuePriority;
     }
 
     // After intializing the vulkan library through a vkInstance we need to look for and select a graphics card
