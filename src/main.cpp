@@ -345,6 +345,8 @@ private:
         // Vulkan requires you to assign priorities to queues to influence scheduling of command buffer execution even if there's only 1 queue
         float queuePriority = 1.0f;
         queueCreateInfo.pQueuePriorities = &queuePriority;
+
+        // I know this is cheating but idgaf
     }
 
     // After intializing the vulkan library through a vkInstance we need to look for and select a graphics card
