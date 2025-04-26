@@ -172,6 +172,9 @@ CMakeFiles/vukan-renderer.dir/src/main.cpp.obj: \
  C:/msys64/mingw64/include/c++/14.1.0/bits/stl_map.h \
  C:/msys64/mingw64/include/c++/14.1.0/bits/stl_multimap.h \
  C:/msys64/mingw64/include/c++/14.1.0/bits/erase_if.h \
+ C:/msys64/mingw64/include/c++/14.1.0/set \
+ C:/msys64/mingw64/include/c++/14.1.0/bits/stl_set.h \
+ C:/msys64/mingw64/include/c++/14.1.0/bits/stl_multiset.h \
  C:/msys64/mingw64/include/c++/14.1.0/cstring \
  C:/msys64/mingw64/include/string.h \
  C:/msys64/mingw64/include/sec_api/string_s.h

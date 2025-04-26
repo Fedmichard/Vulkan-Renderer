@@ -7,7 +7,7 @@ Then do the army of cubes with deferred rendering, forward+ rendering.
 Do some sort of occlusion culling.
 Implement picking.
 */
-
+// #define VK_USE_PLATFORM_WIN32_KHR
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
@@ -15,6 +15,7 @@ Implement picking.
 #include <optional>
 #include <vector>
 #include <map>
+#include <set>
 #include <stdexcept> //Provides Try Catch Logic
 // provides EXIT_SUCCESS and EXIT_FAILURE macros
 #include <cstdlib>
@@ -84,9 +85,11 @@ private:
 
     // Queues
     VkQueue graphicsQueue;
-    // may need to add this line vkGetDeviceQueue(device, indices.graphicsFamily.value(), 0, &graphicsQueue);
+    VkQueue presentQueue;
 
     // Window surface
+    // A vulkan object that represents the rendering target for your vulkan commands
+    // Cannot directly render to glfw window using vulkan commands you need this surface to link to that window and write to the surface
     VkSurfaceKHR surface;
 
 
@@ -288,8 +291,12 @@ private:
         */
         std::optional<uint32_t> graphicsFamily;
 
+        // We're going to add another queue for the presentation of images since they could not overlap depending on your device
+        std::optional<uint32_t> presentFamily;
+
         bool isComplete() {
-            return graphicsFamily.has_value();
+            return graphicsFamily.has_value() &&
+                   presentFamily.has_value();
         }
     };
     
@@ -313,10 +320,17 @@ private:
         // With the queue families from our device we're looking for all the ones that support VK_QUEUE_GRAPHICS_BIT so we can add to our indicies perhaps?
         vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamilies.data());
 
-        // We need to find at least one queue family that supports VK_QUEUE_GRAPHICS_BIT
         int i = 0;
-        // If the queue family the index is currently on supports VK_QUEUE_GRAPHICS_BIT we will set our graphicsFamily index to that
         for (const auto& queueFamily : queueFamilies) {
+            VkBool32 presentSupport = false;
+            vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surface, &presentSupport);
+
+            if (presentSupport) {
+                indices.presentFamily = i;
+            }
+
+            // We need to find at least one queue family that supports VK_QUEUE_GRAPHICS_BIT
+            // If the queue family the index is currently on supports VK_QUEUE_GRAPHICS_BIT we will set our graphicsFamily index to that
             if (queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
                 indices.graphicsFamily = i;
             }
@@ -336,8 +350,17 @@ private:
         // Is called on it's own to initialize vulkan
         createInstance();
         setUpDebugMessenger();
+        createSurface();
         pickPhysicalDevice();
         createLogicalDevice();
+    }
+
+    // Represents the connection between your vulkan instance and a specific output desitnation provided by a windowing system
+    void createSurface() {
+        // Glfw is creating a vulkan window surface linked to our glfw window
+        if (glfwCreateWindowSurface(instance, window, nullptr, &surface) != VK_SUCCESS) {
+            throw std::runtime_error("failed to create window surface!");
+        }
     }
 
     // After we select our physical device, we need to set up a logical device to interface with it
@@ -345,6 +368,19 @@ private:
         // Describes the features we want to use as well as the queues to create now that we've queried which ones are available
         QueueFamilyIndices indices = findQueueFamilies(physicalDevice);
 
+        std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
+        std::set<uint32_t> uniqueQueueFamilies = {indices.graphicsFamily.value(), indices.presentFamily.value()};
+
+        float queuePriority = 1.0f;
+        for (auto queueFamilies : uniqueQueueFamilies) {
+            VkDeviceQueueCreateInfo queueCreateInfo{};
+            queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+            queueCreateInfo.queueCount = 1;
+            queueCreateInfo.pQueuePriorities = &queuePriority;
+            queueCreateInfos.push_back(queueCreateInfo);
+        }
+
+        /*
         // Creating the queue info
         VkDeviceQueueCreateInfo queueCreateInfo{};
         queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
@@ -354,6 +390,7 @@ private:
         // Vulkan requires you to assign priorities to queues to influence scheduling of command buffer execution even if there's only 1 queue
         float queuePriority = 1.0f;
         queueCreateInfo.pQueuePriorities = &queuePriority;
+        */
 
         // Some device features that we'll be using later on
         // Won't do anything so it'll default to false but we need this to create logical device
@@ -364,8 +401,8 @@ private:
         createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
 
         // Set the pointers to our queue create info and device features
-        createInfo.pQueueCreateInfos = &queueCreateInfo;
-        createInfo.queueCreateInfoCount = 1;
+        createInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
+        createInfo.pQueueCreateInfos = queueCreateInfos.data();
 
         createInfo.pEnabledFeatures = &deviceFeatures;
 
@@ -384,6 +421,9 @@ private:
         if (vkCreateDevice(physicalDevice, &createInfo, nullptr, &device) != VK_SUCCESS) {
             throw std::runtime_error("failed to create logical device!");
         }
+
+        vkGetDeviceQueue(device, indices.graphicsFamily.value(), 0, &graphicsQueue);
+        vkGetDeviceQueue(device, indices.presentFamily.value(), 0, &presentQueue);
 
     }
 
@@ -509,6 +549,8 @@ private:
             DestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
         }
 
+        // Destroy our created surface
+        vkDestroySurfaceKHR(instance, surface, nullptr);
         // Destroy vkinstance right before the program exits
         vkDestroyInstance(instance, nullptr);
 
