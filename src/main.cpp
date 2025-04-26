@@ -82,6 +82,14 @@ private:
     // Logical device
     VkDevice device;
 
+    // Queues
+    VkQueue graphicsQueue;
+    // may need to add this line vkGetDeviceQueue(device, indices.graphicsFamily.value(), 0, &graphicsQueue);
+
+    // Window surface
+    VkSurfaceKHR surface;
+
+
     // Initialize GLFW and create a window
     void initWindow() {
         // Initializes glfw library, but it was originally designed for an OpenGL context
@@ -337,6 +345,7 @@ private:
         // Describes the features we want to use as well as the queues to create now that we've queried which ones are available
         QueueFamilyIndices indices = findQueueFamilies(physicalDevice);
 
+        // Creating the queue info
         VkDeviceQueueCreateInfo queueCreateInfo{};
         queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
         queueCreateInfo.queueFamilyIndex = indices.graphicsFamily.value();
@@ -346,7 +355,36 @@ private:
         float queuePriority = 1.0f;
         queueCreateInfo.pQueuePriorities = &queuePriority;
 
-        // I know this is cheating but idgaf
+        // Some device features that we'll be using later on
+        // Won't do anything so it'll default to false but we need this to create logical device
+        VkPhysicalDeviceFeatures deviceFeatures{};
+
+        // Actual info to create logical device
+        VkDeviceCreateInfo createInfo{};
+        createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+
+        // Set the pointers to our queue create info and device features
+        createInfo.pQueueCreateInfos = &queueCreateInfo;
+        createInfo.queueCreateInfoCount = 1;
+
+        createInfo.pEnabledFeatures = &deviceFeatures;
+
+        // Similar to vulkan instance but this time we're creating it to be device specific
+        createInfo.enabledExtensionCount = 0;
+
+        // Done on a device level to perform checks on the specific operations performed on device
+        if (enableValidationLayers) {
+            // Using the same VK_LAYER_KHRONOS_validation to ensure validation of rendering commands and resource usage
+            createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
+            createInfo.ppEnabledLayerNames = validationLayers.data();
+        } else {
+            createInfo.enabledLayerCount = 0;
+        }
+
+        if (vkCreateDevice(physicalDevice, &createInfo, nullptr, &device) != VK_SUCCESS) {
+            throw std::runtime_error("failed to create logical device!");
+        }
+
     }
 
     // After intializing the vulkan library through a vkInstance we need to look for and select a graphics card
@@ -465,9 +503,12 @@ private:
     // Every Vulkan object that we create needs to be destroyed when we no longer need it
     // It is possible to perform automatic resource management using RAII or smart pointers
     void cleanup() {
+        vkDestroyDevice(device, nullptr);
+
         if (enableValidationLayers) {
             DestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
         }
+
         // Destroy vkinstance right before the program exits
         vkDestroyInstance(instance, nullptr);
 
