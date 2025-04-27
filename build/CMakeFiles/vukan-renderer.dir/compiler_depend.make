@@ -77,7 +77,9 @@ CMakeFiles/vukan-renderer.dir/src/main.cpp.obj: C:/Users/franc/Documents/Persona
   C:/msys64/mingw64/include/c++/14.1.0/bits/stl_iterator_base_types.h \
   C:/msys64/mingw64/include/c++/14.1.0/bits/stl_map.h \
   C:/msys64/mingw64/include/c++/14.1.0/bits/stl_multimap.h \
+  C:/msys64/mingw64/include/c++/14.1.0/bits/stl_multiset.h \
   C:/msys64/mingw64/include/c++/14.1.0/bits/stl_pair.h \
+  C:/msys64/mingw64/include/c++/14.1.0/bits/stl_set.h \
   C:/msys64/mingw64/include/c++/14.1.0/bits/stl_tree.h \
   C:/msys64/mingw64/include/c++/14.1.0/bits/stl_uninitialized.h \
   C:/msys64/mingw64/include/c++/14.1.0/bits/stl_vector.h \
@@ -119,6 +121,7 @@ CMakeFiles/vukan-renderer.dir/src/main.cpp.obj: C:/Users/franc/Documents/Persona
   C:/msys64/mingw64/include/c++/14.1.0/optional \
   C:/msys64/mingw64/include/c++/14.1.0/ostream \
   C:/msys64/mingw64/include/c++/14.1.0/pstl/pstl_config.h \
+  C:/msys64/mingw64/include/c++/14.1.0/set \
   C:/msys64/mingw64/include/c++/14.1.0/stdexcept \
   C:/msys64/mingw64/include/c++/14.1.0/stdlib.h \
   C:/msys64/mingw64/include/c++/14.1.0/streambuf \
@@ -246,7 +249,11 @@ C:/msys64/mingw64/include/c++/14.1.0/x86_64-w64-mingw32/bits/c++config.h:
 
 C:/msys64/mingw64/include/c++/14.1.0/x86_64-w64-mingw32/bits/c++allocator.h:
 
-C:/msys64/mingw64/include/c++/14.1.0/x86_64-w64-mingw32/bits/atomic_word.h:
+C:/msys64/mingw64/include/c++/14.1.0/typeinfo:
+
+C:/msys64/mingw64/include/c++/14.1.0/type_traits:
+
+C:/msys64/mingw64/include/c++/14.1.0/tuple:
 
 C:/msys64/mingw64/include/sec_api/sys/timeb_s.h:
 
@@ -269,8 +276,6 @@ C:/msys64/mingw64/include/c++/14.1.0/bits/vector.tcc:
 C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/14.1.0/include/mm_malloc.h:
 
 C:/msys64/mingw64/include/c++/14.1.0/bits/ios_base.h:
-
-C:/msys64/mingw64/include/c++/14.1.0/bits/uses_allocator.h:
 
 C:/msys64/mingw64/include/c++/14.1.0/bits/cxxabi_forced.h:
 
@@ -360,6 +365,8 @@ C:/msys64/mingw64/include/c++/14.1.0/bits/charconv.h:
 
 C:/msys64/mingw64/include/c++/14.1.0/system_error:
 
+C:/msys64/mingw64/include/c++/14.1.0/bits/stl_multiset.h:
+
 C:/msys64/mingw64/include/c++/14.1.0/cwctype:
 
 C:/msys64/mingw64/include/c++/14.1.0/bits/allocator.h:
@@ -373,6 +380,10 @@ C:/msys64/mingw64/include/GL/gl.h:
 C:/msys64/mingw64/include/_mingw_stat64.h:
 
 C:/msys64/mingw64/include/c++/14.1.0/bits/stl_uninitialized.h:
+
+C:/msys64/mingw64/include/c++/14.1.0/x86_64-w64-mingw32/bits/atomic_word.h:
+
+C:/msys64/mingw64/include/c++/14.1.0/set:
 
 C:/msys64/mingw64/include/c++/14.1.0/backward/binders.h:
 
@@ -444,6 +455,14 @@ C:/msys64/mingw64/include/c++/14.1.0/bits/erase_if.h:
 
 C:/msys64/mingw64/include/c++/14.1.0/bits/stl_multimap.h:
 
+C:/msys64/mingw64/include/c++/14.1.0/bits/uses_allocator.h:
+
+C:/msys64/mingw64/include/c++/14.1.0/bits/stl_set.h:
+
+C:/msys64/mingw64/include/c++/14.1.0/iosfwd:
+
+C:/msys64/mingw64/include/c++/14.1.0/cerrno:
+
 C:/msys64/mingw64/include/c++/14.1.0/bits/stl_tree.h:
 
 C:/msys64/mingw64/include/c++/14.1.0/bits/streambuf.tcc:
@@ -472,10 +491,6 @@ C:/msys64/mingw64/include/c++/14.1.0/bits/invoke.h:
 
 C:/msys64/mingw64/include/c++/14.1.0/ostream:
 
-C:/msys64/mingw64/include/c++/14.1.0/iosfwd:
-
-C:/msys64/mingw64/include/c++/14.1.0/cerrno:
-
 C:/msys64/mingw64/include/c++/14.1.0/clocale:
 
 C:/msys64/mingw64/include/c++/14.1.0/iostream:
@@ -491,8 +506,6 @@ C:/msys64/mingw64/include/c++/14.1.0/debug/assertions.h:
 C:/msys64/mingw64/include/c++/14.1.0/bits/move.h:
 
 C:/msys64/mingw64/include/c++/14.1.0/cwchar:
-
-C:/msys64/mingw64/include/c++/14.1.0/typeinfo:
 
 C:/msys64/mingw64/include/c++/14.1.0/stdlib.h:
 
@@ -535,7 +548,3 @@ C:/Users/franc/Documents/Personal_Projects/Vulkan-Renderer/libraries/GLFW/includ
 C:/VulkanSDK/1.4.309.0/Include/vulkan/vk_platform.h:
 
 C:/msys64/mingw64/include/c++/14.1.0/string:
-
-C:/msys64/mingw64/include/c++/14.1.0/tuple:
-
-C:/msys64/mingw64/include/c++/14.1.0/type_traits:

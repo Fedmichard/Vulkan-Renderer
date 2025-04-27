@@ -33,6 +33,11 @@ const std::vector<const char*> validationLayers = {
     "VK_LAYER_KHRONOS_validation" // Right now we're only getting this one validation layer for tht catches common vulkan usage errors
 };
 
+// List of required device extensions for compatible device
+const std::vector<const char*> deviceExtensions = {
+    VK_KHR_SWAPCHAIN_EXTENSION_NAME
+};
+
 // NDEBUG macro is apart of C++ standard and it just means if the program is being compiled in debug mode or not
 #ifdef NDEBUG
     const bool enableValidationLayers = false;
@@ -92,6 +97,45 @@ private:
     // Cannot directly render to glfw window using vulkan commands you need this surface to link to that window and write to the surface
     VkSurfaceKHR surface;
 
+    /*
+        Bundles all of our queue family indices
+        Each queue family on physical device is given a unique index (unint32_t)
+        Vulkan is designed for parallelism, by having multiple queuees you can submit different types of work to the gpu concurrently
+    */
+    struct QueueFamilyIndices {
+        /*
+            The first queue family we're going to need is the graphicsFamily queue family represented by some uint32_t that we'll define later
+            We can use the std::optional wrapper which contains no value until we assign something to it
+            We can query it at any point using .has_value() function
+            This is just to help dictate whether or not this queue family was available(found)
+            This is necessary because sometimes we may prefer devices but not necessarily require it
+        */
+        std::optional<uint32_t> graphicsFamily;
+
+        // We're going to add another queue for the presentation of images since they could not overlap depending on your device
+        std::optional<uint32_t> presentFamily;
+
+        bool isComplete() {
+            return graphicsFamily.has_value() &&
+                   presentFamily.has_value();
+        }
+    };
+
+
+    /*
+        Just checking if the swapchain is available isn't enough
+        It may be available but incompatible with our window surface
+        It also involves a lot more settings than creating an instance or a device
+        There are 3 kinds of properties we need to check
+    */
+    struct SwapChainSupportDetails {
+        // structure that defines capabilities of a surface
+        VkSurfaceCapabilitiesKHR capabilities;
+        // vector that holds surface formats
+        std::vector<VkSurfaceFormatKHR> formats;
+        // vector that holds available presentation nodes
+        std::vector<VkPresentModeKHR> presentModes;
+    };
 
     // Initialize GLFW and create a window
     void initWindow() {
@@ -271,34 +315,37 @@ private:
         vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
         */
 
+        // Finds our desired queue families and ensures it is compatible
         QueueFamilyIndices indices = findQueueFamilies(device);
 
-        return indices.isComplete();
+        // Check if extensions are supported on
+        bool extensionsSupported = checkDeviceExtensionSupport(device);
+
+        return indices.isComplete() && extensionsSupported;
     }
 
-    /*
-        Bundles all of our queue family indices
-        Each queue family on physical device is given a unique index (unint32_t)
-        Vulkan is designed for parallelism, by having multiple queuees you can submit different types of work to the gpu concurrently
-    */
-    struct QueueFamilyIndices {
+    bool checkDeviceExtensionSupport(VkPhysicalDevice device) {
+        uint32_t extensionCount;
+        vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, nullptr);
+
+        std::vector<VkExtensionProperties> availableExtensions(extensionCount);
+        vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, availableExtensions.data());
+
+        std::set<std::string> requiredExtensions(deviceExtensions.begin(), deviceExtensions.end());
+
         /*
-            The first queue family we're going to need is the graphicsFamily queue family represented by some uint32_t that we'll define later
-            We can use the std::optional wrapper which contains no value until we assign something to it
-            We can query it at any point using .has_value() function
-            This is just to help dictate whether or not this queue family was available(found)
-            This is necessary because sometimes we may prefer devices but not necessarily require it
+        What we do here is we first collect all of the available device extensions compatible with our physical device
+        Just like how we found the compatible vulkan instance extensions and validation layers compatible with our gpu
+        We then create a set of our required device extensions so that we don't affect the original array of extensions
+        we iterate through the available device extensions and as we do we erase that string from our required extension set
+        if at the end of the loop the extension is erased, that means it's compatible
         */
-        std::optional<uint32_t> graphicsFamily;
-
-        // We're going to add another queue for the presentation of images since they could not overlap depending on your device
-        std::optional<uint32_t> presentFamily;
-
-        bool isComplete() {
-            return graphicsFamily.has_value() &&
-                   presentFamily.has_value();
+        for (const auto& extension : availableExtensions) {
+            requiredExtensions.erase(extension.extensionName);
         }
-    };
+
+        return requiredExtensions.empty();
+    }
     
     /*
         Any operation done using vulkan needs to be submitted to a queue
@@ -355,6 +402,26 @@ private:
         createLogicalDevice();
     }
 
+    // Function to populate our swapchain struct
+    SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device) {
+        SwapChainSupportDetails details;
+
+        // Before you create a swap chain you need to know what the surface and physical device are capable of
+        // Populate are swap chain support details struct, specifically the capabilities
+        vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, surface, &details.capabilities);
+
+        // Filling our formats vector
+        uint32_t formatCount;
+        vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &formatCount, nullptr);
+
+        if (formatCount != 0) {
+            details.formats.resize(formatCount);
+            vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &formatCount, details.formats.data());
+        }
+
+        return details;
+    }
+
     // Represents the connection between your vulkan instance and a specific output desitnation provided by a windowing system
     void createSurface() {
         // Glfw is creating a vulkan window surface linked to our glfw window
@@ -407,7 +474,9 @@ private:
         createInfo.pEnabledFeatures = &deviceFeatures;
 
         // Similar to vulkan instance but this time we're creating it to be device specific
-        createInfo.enabledExtensionCount = 0;
+        // Enabling our device extensions (VK_KHR_swapchain)
+        createInfo.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size());
+        createInfo.ppEnabledExtensionNames = deviceExtensions.data();
 
         // Done on a device level to perform checks on the specific operations performed on device
         if (enableValidationLayers) {
