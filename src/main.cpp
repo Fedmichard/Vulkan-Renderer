@@ -1,6 +1,15 @@
 /* GUIDE FOR LATER
 First draw a triangle.
+Draw Several Triangles.
+Add Movement to triangles.
 Then a quad.
+Render 2 triangles and order the verices in a way so that you have a plane
+Make the plane have some albedo texture, like wood
+Implement basic phong shading model
+Add normal texture
+Anti-Alias the scene
+(Optional) Abstract the texture management to some simple material class
+Try load 3D model and do steps 2-4 again
 Then a cube.
 Then an army of cubes.
 Then do the army of cubes with deferred rendering, forward+ rendering.
@@ -35,6 +44,7 @@ const std::vector<const char*> validationLayers = {
 
 // List of required device extensions for compatible device
 const std::vector<const char*> deviceExtensions = {
+    // Is a device extension since it relies on windowing system
     VK_KHR_SWAPCHAIN_EXTENSION_NAME
 };
 
@@ -101,6 +111,7 @@ private:
         Bundles all of our queue family indices
         Each queue family on physical device is given a unique index (unint32_t)
         Vulkan is designed for parallelism, by having multiple queuees you can submit different types of work to the gpu concurrently
+        Queue families perform operations, they're just groups of operations specific to one thing
     */
     struct QueueFamilyIndices {
         /*
@@ -109,10 +120,15 @@ private:
             We can query it at any point using .has_value() function
             This is just to help dictate whether or not this queue family was available(found)
             This is necessary because sometimes we may prefer devices but not necessarily require it
+            receives graphics commands (like drawing)
         */
         std::optional<uint32_t> graphicsFamily;
 
-        // We're going to add another queue for the presentation of images since they could not overlap depending on your device
+        /*
+            We're going to add another queue for the presentation of images since they could not overlap depending on your device
+            The present family is a queue on the logical device that can perform presentation operations
+            You can use this queue to place commands that tell vulkan to display an image from the swap chain on the screen
+        */
         std::optional<uint32_t> presentFamily;
 
         bool isComplete() {
@@ -318,10 +334,19 @@ private:
         // Finds our desired queue families and ensures it is compatible
         QueueFamilyIndices indices = findQueueFamilies(device);
 
-        // Check if extensions are supported on
+        // Check if extensions are supported on physical device
         bool extensionsSupported = checkDeviceExtensionSupport(device);
 
-        return indices.isComplete() && extensionsSupported;
+        // Check if swap chain support is adequate
+        // Right now our only device extension is swap chain so we're check if swap chain is supported first
+        bool swapChainAdequate = false;
+        // So if all extensions are supported
+        if (extensionsSupported) {
+            SwapChainSupportDetails swapChainSupport = querySwapChainSupport(device);
+            swapChainAdequate = !swapChainSupport.formats.empty() && !swapChainSupport.presentModes.empty();
+        }
+
+        return indices.isComplete() && extensionsSupported && swapChainAdequate;
     }
 
     bool checkDeviceExtensionSupport(VkPhysicalDevice device) {
@@ -402,12 +427,17 @@ private:
         createLogicalDevice();
     }
 
-    // Function to populate our swapchain struct
+    /*
+        Function to populate our swapchain struct
+        A swap chain is a queue of images ready to be presented to the screen
+        Manages the images your application will render into
+        Works directly with the present queue family
+    */
     SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device) {
         SwapChainSupportDetails details;
 
         // Before you create a swap chain you need to know what the surface and physical device are capable of
-        // Populate are swap chain support details struct, specifically the capabilities
+        // Populate our swap chain support details struct, specifically the capabilities struct
         vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, surface, &details.capabilities);
 
         // Filling our formats vector
@@ -419,10 +449,24 @@ private:
             vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &formatCount, details.formats.data());
         }
 
+        // Filling present modes vector
+        uint32_t presentModeCount;
+        vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &presentModeCount, nullptr);
+
+        if (presentModeCount != 0) {
+            details.presentModes.resize(presentModeCount);
+            vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &presentModeCount, details.presentModes.data());
+        }
+
         return details;
     }
 
-    // Represents the connection between your vulkan instance and a specific output desitnation provided by a windowing system
+    /*
+        Keep in mind you must create a swapchain if you want to present an image to the surface using the presentQueue if available
+        Represents the connection between your vulkan instance and a specific output desitnation provided by a windowing system
+        Since VUlkan is platform agnostic and every os has a different way to handle windows you need a way to interface with these different systems
+        To do this you must write vulkan operations to a surface that then links to a window that it'll present to
+    */
     void createSurface() {
         // Glfw is creating a vulkan window surface linked to our glfw window
         if (glfwCreateWindowSurface(instance, window, nullptr, &surface) != VK_SUCCESS) {
