@@ -428,6 +428,55 @@ private:
     }
 
     /*
+        Finding the right settings for the best possible swap chain
+        First thing we need is the surface format
+        
+        A surface format defines how the pixels of an image in a swapchain are represented in memory
+        We'll pass a reference to our formats vector member of our SwapChainSupportDetails struct
+
+        Each VkSurfaceFormatKHR has a format-color space pair
+        The format member specifies the color channels and types (like rgb and alpha channels)
+        The color space member indicates indiciates if the SRGB color space is supported or not
+        If SRGB is available we'll use it because it provides more accurate perceived colors
+        It is also the standard colorspace 
+    */
+    VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats) {
+        // First let's see if prefered combination is available to use
+        for (const auto& availableFormat : availableFormats) {
+            // Go through all of our available fromats
+            // If both of these options are available from our available formats return that available format
+            if (availableFormat.format == VK_FORMAT_B8G8R8A8_SRGB && availableFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
+                /*
+                    VK_FORMAT_B8G8R8A8_SRGB means we store BGRA in that order as 8 bits each for a total of 32 bits per pixel
+                    Each pixel in our swapchain images will be stored as 32 bits in that order in memory
+                    VK_COLOR_SPACE_SRGB_NONLINEAR_KHR is a flag used to tell us if SRGB color space is supported or not
+                */
+                return availableFormat;
+            }
+
+            // If that fails meaning we lack the support of both, we can usually just select the first one
+            // Or we can order them by how "good" they are
+            return availableFormats[0];
+        }
+    }
+
+    /*
+        Next thing we need is presentation mode which is arguably the most important setting for the swap chain
+        It represents the actual conditions to show images on the screen
+
+        There are 4 possible modes available:
+        VK_PRESENT_MODE_IMMEDIATE_KHR
+        VK_PRESENT_MODE_FIFO_KHR
+        VK_PRESENT_MODE_FIFO_RELAXED_KHR
+        VK_PRESENT_MODE_MAILBOX_KHR
+
+        VK_PRESENT_MODE_FIFO_KHR is the only guaranteed to be available
+    */
+    VkPresentModeKHR chooseSwapPresentMode() {
+        return VK_PRESENT_MODE_FIFO_KHR;
+    }
+
+    /*
         Function to populate our swapchain struct
         A swap chain is a queue of images ready to be presented to the screen
         Manages the images your application will render into
