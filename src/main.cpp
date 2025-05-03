@@ -732,25 +732,13 @@ private:
         std::set<uint32_t> uniqueQueueFamilies = {indices.graphicsFamily.value(), indices.presentFamily.value()};
 
         float queuePriority = 1.0f;
-        for (auto queueFamilies : uniqueQueueFamilies) {
+        for (auto queueFamily : uniqueQueueFamilies) {
             VkDeviceQueueCreateInfo queueCreateInfo{};
             queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
             queueCreateInfo.queueCount = 1;
             queueCreateInfo.pQueuePriorities = &queuePriority;
             queueCreateInfos.push_back(queueCreateInfo);
         }
-
-        /*
-        // Creating the queue info
-        VkDeviceQueueCreateInfo queueCreateInfo{};
-        queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-        queueCreateInfo.queueFamilyIndex = indices.graphicsFamily.value();
-        queueCreateInfo.queueCount = 1;
-
-        // Vulkan requires you to assign priorities to queues to influence scheduling of command buffer execution even if there's only 1 queue
-        float queuePriority = 1.0f;
-        queueCreateInfo.pQueuePriorities = &queuePriority;
-        */
 
         // Some device features that we'll be using later on
         // Won't do anything so it'll default to false but we need this to create logical device
@@ -882,12 +870,12 @@ private:
         // List all available vulkan instance extensions on this system
         checkVulkanInstanceExtensions();
 
-        // Now specified everything Vulkan needs to create an instance and we can finally issue the vkCreateInstance call
-        // Creating a VKInstance object initializes the vulkan library and allows the app to pass info about itself to the implementation
-        VkResult result = vkCreateInstance(&createInfo, nullptr, &instance);
-
-        // Check to see if our Vulkan instance was successfully created
-        if (result != VK_SUCCESS) {
+        /*
+            Now specified everything Vulkan needs to create an instance and we can finally issue the vkCreateInstance call
+            Creating a VKInstance object initializes the vulkan library and allows the app to pass info about itself to the implementation
+            Check to see if our Vulkan instance was successfully created
+        */
+        if (vkCreateInstance(&createInfo, nullptr, &instance) != VK_SUCCESS) {
             throw std::runtime_error("Failed to create an instance!");
         }
     }
