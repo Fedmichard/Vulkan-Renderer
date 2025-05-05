@@ -660,7 +660,7 @@ private:
         createInfo.imageFormat = surfaceFormat.format;
         createInfo.imageColorSpace = surfaceFormat.colorSpace;
         createInfo.imageExtent = swapExtent;
-        // Specifies amount of layers each image consists
+        // Specifies amount of layers each image consists of
         // Should always be 1 unless you develop a stereoscopid 3d app
         createInfo.imageArrayLayers = 1;
         // Specifies what kind of operations we'll use the images in the swap chain for
