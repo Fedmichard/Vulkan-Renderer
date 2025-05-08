@@ -21,6 +21,7 @@ Implement picking.
 #include <GLFW/glfw3.h>
 
 #include <iostream>
+#include <fstream>
 #include <optional>
 #include <vector>
 #include <map>
@@ -579,6 +580,40 @@ private:
         return details;
     }
 
+    /*
+        Helper function to load binary data from the files
+        will read all of the bytes from a file and return them in a byte array managed by a vector
+    */
+    static std::vector<char> readFile(const std::string& filename) {
+        // We open with 2 flags ate and binary
+        // ate: start reading at the end of the file
+        // binary: read the files as binary file
+        std::ifstream file(filename, std::ios::ate | std::ios::binary);
+
+        if (!file.is_open()) {
+            throw std::runtime_error("failed to open the file!");
+        }
+
+        // The reason we read at the end of the file is we can use the read position to determine the size and allocate a buffer
+        size_t fileSize = (size_t) file.tellg();
+        std::vector<char> buffer(fileSize);
+
+        // Now we can go back to the beginning of the file and read all of the bytes at once
+        file.seekg(0);
+        file.read(buffer.data(), fileSize);
+
+        file.close();
+
+        return buffer;
+    }
+
+    /*
+        Before we can pass our code to the graphics pipeline we must first wrap it in a VkShaderModule
+    */
+   VkShaderModule createShaderModule() {
+    
+   }
+
     // Store and initiate each vulkan object
     void initVulkan() {
         // Is called on it's own to initialize vulkan
@@ -615,10 +650,15 @@ private:
         Thankfully Khronos has released their own vendor-independent compiler that compiles GLSL to SPIR-V.
         We'll be using glslc.exe created by google. Which is the compiler for compiling glsl to spir-v which is already included in the vulkan sdk
 
-        GLSL is a shading language with a c-style syntax
+        GLSL is a shading language with a c-style syntax. Programs written in it have a main function that is invoked for every object.
+        GLSL uses global variables for input and output over using parameters and return.
     */
     void createGraphicsPipeline() {
+        auto vertShaderCode = readFile("../shaders/vert.spv");
+        auto fragShaderCode = readFile("../shaders/frag.spv");
 
+        std::cout << vertShaderCode.size() << std::endl;
+        std::cout << fragShaderCode.size() << std::endl;
     }
 
     void createImageViews() {

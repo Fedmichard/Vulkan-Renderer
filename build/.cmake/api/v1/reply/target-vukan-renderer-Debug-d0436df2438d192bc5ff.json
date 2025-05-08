@@ -30,13 +30,7 @@
 			{
 				"command" : 0,
 				"file" : 0,
-				"line" : 15,
-				"parent" : 0
-			},
-			{
-				"command" : 1,
-				"file" : 0,
-				"line" : 12,
+				"line" : 16,
 				"parent" : 0
 			},
 			{
@@ -46,9 +40,9 @@
 				"parent" : 0
 			},
 			{
-				"command" : 2,
+				"command" : 1,
 				"file" : 0,
-				"line" : 17,
+				"line" : 14,
 				"parent" : 0
 			},
 			{
@@ -76,6 +70,12 @@
 				"parent" : 0
 			},
 			{
+				"command" : 2,
+				"file" : 0,
+				"line" : 22,
+				"parent" : 0
+			},
+			{
 				"command" : 3,
 				"file" : 0,
 				"line" : 6,
@@ -97,6 +97,12 @@
 				"command" : 3,
 				"file" : 0,
 				"line" : 10,
+				"parent" : 0
+			},
+			{
+				"command" : 3,
+				"file" : 0,
+				"line" : 11,
 				"parent" : 0
 			}
 		]
@@ -126,6 +132,10 @@
 				},
 				{
 					"backtrace" : 12,
+					"path" : "C:/Users/franc/Documents/Personal_Projects/Vulkan-Renderer/shaders"
+				},
+				{
+					"backtrace" : 13,
 					"path" : "C:/VulkanSDK/1.4.309.0/Include"
 				}
 			],

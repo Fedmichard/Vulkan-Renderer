@@ -35,6 +35,7 @@ CMakeFiles/vukan-renderer.dir/src/main.cpp.obj: C:/Users/franc/Documents/Persona
   C:/msys64/mingw64/include/c++/14.1.0/bits/basic_string.tcc \
   C:/msys64/mingw64/include/c++/14.1.0/bits/char_traits.h \
   C:/msys64/mingw64/include/c++/14.1.0/bits/charconv.h \
+  C:/msys64/mingw64/include/c++/14.1.0/bits/codecvt.h \
   C:/msys64/mingw64/include/c++/14.1.0/bits/concept_check.h \
   C:/msys64/mingw64/include/c++/14.1.0/bits/cpp_type_traits.h \
   C:/msys64/mingw64/include/c++/14.1.0/bits/cxxabi_forced.h \
@@ -44,6 +45,7 @@ CMakeFiles/vukan-renderer.dir/src/main.cpp.obj: C:/Users/franc/Documents/Persona
   C:/msys64/mingw64/include/c++/14.1.0/bits/exception.h \
   C:/msys64/mingw64/include/c++/14.1.0/bits/exception_defines.h \
   C:/msys64/mingw64/include/c++/14.1.0/bits/exception_ptr.h \
+  C:/msys64/mingw64/include/c++/14.1.0/bits/fstream.tcc \
   C:/msys64/mingw64/include/c++/14.1.0/bits/functexcept.h \
   C:/msys64/mingw64/include/c++/14.1.0/bits/functional_hash.h \
   C:/msys64/mingw64/include/c++/14.1.0/bits/hash_bytes.h \
@@ -117,6 +119,7 @@ CMakeFiles/vukan-renderer.dir/src/main.cpp.obj: C:/Users/franc/Documents/Persona
   C:/msys64/mingw64/include/c++/14.1.0/ext/numeric_traits.h \
   C:/msys64/mingw64/include/c++/14.1.0/ext/string_conversions.h \
   C:/msys64/mingw64/include/c++/14.1.0/ext/type_traits.h \
+  C:/msys64/mingw64/include/c++/14.1.0/fstream \
   C:/msys64/mingw64/include/c++/14.1.0/initializer_list \
   C:/msys64/mingw64/include/c++/14.1.0/ios \
   C:/msys64/mingw64/include/c++/14.1.0/iosfwd \
@@ -142,8 +145,10 @@ CMakeFiles/vukan-renderer.dir/src/main.cpp.obj: C:/Users/franc/Documents/Persona
   C:/msys64/mingw64/include/c++/14.1.0/typeinfo \
   C:/msys64/mingw64/include/c++/14.1.0/vector \
   C:/msys64/mingw64/include/c++/14.1.0/x86_64-w64-mingw32/bits/atomic_word.h \
+  C:/msys64/mingw64/include/c++/14.1.0/x86_64-w64-mingw32/bits/basic_file.h \
   C:/msys64/mingw64/include/c++/14.1.0/x86_64-w64-mingw32/bits/c++allocator.h \
   C:/msys64/mingw64/include/c++/14.1.0/x86_64-w64-mingw32/bits/c++config.h \
+  C:/msys64/mingw64/include/c++/14.1.0/x86_64-w64-mingw32/bits/c++io.h \
   C:/msys64/mingw64/include/c++/14.1.0/x86_64-w64-mingw32/bits/c++locale.h \
   C:/msys64/mingw64/include/c++/14.1.0/x86_64-w64-mingw32/bits/cpu_defines.h \
   C:/msys64/mingw64/include/c++/14.1.0/x86_64-w64-mingw32/bits/ctype_base.h \
@@ -254,6 +259,8 @@ C:/msys64/mingw64/include/c++/14.1.0/x86_64-w64-mingw32/bits/c++config.h:
 
 C:/msys64/mingw64/include/c++/14.1.0/x86_64-w64-mingw32/bits/c++allocator.h:
 
+C:/msys64/mingw64/include/c++/14.1.0/x86_64-w64-mingw32/bits/basic_file.h:
+
 C:/msys64/mingw64/include/c++/14.1.0/typeinfo:
 
 C:/msys64/mingw64/include/c++/14.1.0/type_traits:
@@ -266,11 +273,11 @@ C:/msys64/mingw64/include/c++/14.1.0/x86_64-w64-mingw32/bits/atomic_word.h:
 
 C:/msys64/mingw64/include/c++/14.1.0/set:
 
-C:/msys64/mingw64/include/sec_api/sys/timeb_s.h:
+C:/msys64/mingw64/include/c++/14.1.0/pstl/execution_defs.h:
 
-C:/msys64/mingw64/include/c++/14.1.0/bits/new_allocator.h:
+C:/msys64/mingw64/include/c++/14.1.0/pstl/pstl_config.h:
 
-C:/msys64/mingw64/include/c++/14.1.0/bits/std_abs.h:
+C:/msys64/mingw64/include/c++/14.1.0/optional:
 
 C:/msys64/mingw64/include/c++/14.1.0/bits/memory_resource.h:
 
@@ -288,21 +295,31 @@ C:/Users/franc/Documents/Personal_Projects/Vulkan-Renderer/libraries/GLFW/includ
 
 C:/VulkanSDK/1.4.309.0/Include/vulkan/vk_platform.h:
 
+C:/msys64/mingw64/include/c++/14.1.0/x86_64-w64-mingw32/bits/ctype_base.h:
+
+C:/msys64/mingw64/include/c++/14.1.0/ostream:
+
+C:/msys64/mingw64/include/c++/14.1.0/bits/invoke.h:
+
+C:/msys64/mingw64/include/sec_api/sys/timeb_s.h:
+
+C:/msys64/mingw64/include/c++/14.1.0/bits/new_allocator.h:
+
+C:/msys64/mingw64/include/c++/14.1.0/bits/std_abs.h:
+
 C:/msys64/mingw64/include/c++/14.1.0/bits/hash_bytes.h:
 
 C:/msys64/mingw64/include/c++/14.1.0/bits/vector.tcc:
 
 C:/msys64/mingw64/include/c++/14.1.0/concepts:
 
-C:/msys64/mingw64/include/c++/14.1.0/pstl/pstl_config.h:
-
-C:/msys64/mingw64/include/c++/14.1.0/optional:
-
 C:/msys64/mingw64/include/pthread_time.h:
 
 C:/msys64/mingw64/include/corecrt_stdio_config.h:
 
 C:/msys64/mingw64/include/c++/14.1.0/bits/cpp_type_traits.h:
+
+C:/msys64/mingw64/include/c++/14.1.0/bits/fstream.tcc:
 
 C:/msys64/mingw64/include/c++/14.1.0/streambuf:
 
@@ -317,6 +334,8 @@ C:/VulkanSDK/1.4.309.0/Include/vk_video/vulkan_video_codec_h265std_decode.h:
 C:/msys64/mingw64/include/c++/14.1.0/ext/atomicity.h:
 
 C:/msys64/mingw64/include/c++/14.1.0/bits/exception_ptr.h:
+
+C:/msys64/mingw64/include/c++/14.1.0/x86_64-w64-mingw32/bits/c++io.h:
 
 C:/msys64/mingw64/include/c++/14.1.0/bits/locale_classes.tcc:
 
@@ -366,8 +385,6 @@ C:/msys64/mingw64/include/c++/14.1.0/bits/stl_construct.h:
 
 C:/VulkanSDK/1.4.309.0/Include/vulkan/vulkan.h:
 
-C:/msys64/mingw64/include/c++/14.1.0/pstl/execution_defs.h:
-
 C:/msys64/mingw64/include/c++/14.1.0/bits/basic_string.h:
 
 C:/msys64/mingw64/include/_mingw.h:
@@ -379,10 +396,6 @@ C:/msys64/mingw64/include/c++/14.1.0/bits/utility.h:
 C:/msys64/mingw64/include/c++/14.1.0/bits/cxxabi_init_exception.h:
 
 C:/msys64/mingw64/include/_mingw_mac.h:
-
-C:/msys64/mingw64/include/c++/14.1.0/bits/nested_exception.h:
-
-C:/msys64/mingw64/include/c++/14.1.0/bits/locale_classes.h:
 
 C:/msys64/mingw64/include/c++/14.1.0/stdexcept:
 
@@ -399,6 +412,8 @@ C:/msys64/mingw64/include/c++/14.1.0/string_view:
 C:/msys64/mingw64/include/c++/14.1.0/bits/stl_iterator_base_types.h:
 
 C:/msys64/mingw64/include/_mingw_secapi.h:
+
+C:/msys64/mingw64/include/c++/14.1.0/bits/codecvt.h:
 
 C:/msys64/mingw64/include/c++/14.1.0/bits/stl_multiset.h:
 
@@ -435,6 +450,10 @@ C:/msys64/mingw64/include/stdio.h:
 C:/msys64/mingw64/include/c++/14.1.0/bits/char_traits.h:
 
 C:/msys64/mingw64/include/c++/14.1.0/bits/alloc_traits.h:
+
+C:/msys64/mingw64/include/c++/14.1.0/bits/locale_classes.h:
+
+C:/msys64/mingw64/include/c++/14.1.0/bits/nested_exception.h:
 
 C:/msys64/mingw64/include/c++/14.1.0/bits/uses_allocator_args.h:
 
@@ -516,6 +535,8 @@ C:/msys64/mingw64/include/c++/14.1.0/iosfwd:
 
 C:/msys64/mingw64/include/c++/14.1.0/cerrno:
 
+C:/msys64/mingw64/include/c++/14.1.0/fstream:
+
 C:/msys64/mingw64/include/c++/14.1.0/bits/stl_tree.h:
 
 C:/msys64/mingw64/include/c++/14.1.0/bits/streambuf.tcc:
@@ -529,12 +550,6 @@ C:/msys64/mingw64/include/c++/14.1.0/ext/alloc_traits.h:
 C:/msys64/mingw64/include/c++/14.1.0/cctype:
 
 C:/msys64/mingw64/include/c++/14.1.0/limits:
-
-C:/msys64/mingw64/include/c++/14.1.0/x86_64-w64-mingw32/bits/ctype_base.h:
-
-C:/msys64/mingw64/include/c++/14.1.0/bits/invoke.h:
-
-C:/msys64/mingw64/include/c++/14.1.0/ostream:
 
 C:/msys64/mingw64/include/c++/14.1.0/clocale:
 
