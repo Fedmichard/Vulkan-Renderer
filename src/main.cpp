@@ -333,7 +333,7 @@ private:
         createInfo.pUserData = nullptr; // optional
     }
 
-    // Checking if each device is suitable for vulkan
+    // Checking if each device is suitable for our needs
     bool isDeviceSuitable(VkPhysicalDevice device) {
         /*
         // To evaluate the suitability of a device we can start by querying for some details
@@ -373,11 +373,11 @@ private:
         std::set<std::string> requiredExtensions(deviceExtensions.begin(), deviceExtensions.end());
 
         /*
-        What we do here is we first collect all of the available device extensions compatible with our physical device
-        Just like how we found the compatible vulkan instance extensions and validation layers compatible with our gpu
-        We then create a set of our required device extensions so that we don't affect the original array of extensions
-        we iterate through the available device extensions and as we do we erase that string from our required extension set
-        if at the end of the loop the extension is erased, that means it's compatible
+            What we do here is we first collect all of the available device extensions compatible with our physical device
+            Just like how we found the compatible vulkan instance extensions and validation layers compatible with our gpu
+            We then create a set of our required device extensions so that we don't affect the original array of extensions
+            we iterate through the available device extensions and as we do we erase that string from our required extension set
+            if at the end of the loop the extension is erased, that means it's compatible
         */
         for (const auto& extension : availableExtensions) {
             requiredExtensions.erase(extension.extensionName);
@@ -589,13 +589,44 @@ private:
         createLogicalDevice();
         createSwapChain();
         createImageViews();
+        createGraphicsPipeline();
+    }
+
+    /*
+        Prepare for a fat paragraph:
+        The graphics pipeline is just a sequence of operations your gpu performs
+        These operations take the vertices textures of your meshes, the pixels in the render targets, etc etc
+
+        simplified overview:
+            (fixed-function; tweak with params but are predefined) Vertex/Index buffer: buffer that holds raw vertex data
+            (programmable; you can upload your own code to gpu to apply operations) Input assembler: collects the raw vertex data from the buffers you specify (May use the index buffer to reuse vertex data without having to duplicate)
+            (programmable) Vertex Shader: ran for every vertex and generally applies transformations to turn vertex positions from the model space to the screen space 
+            (programmable) Tessellation: allows you to subdivide geometry based on certain rules to increase mesh quality. used for surfaces like brick walls and stairs to prevent it from looking flat up close
+            (programmable) Geometry shader: ran on every primitive (line, point, triangle) and can discard it or output more primitives than came in. Similar to tesselation but more flexible.
+            (fixed-function) Rasterization: discretizes the primitives into fragments (pixel elements that they fill on the framebuffer). 
+            (programmable) Fragment shader: invoked for every fragment that survives and determines which framebuffer the fragments are written to and with which color and depth values
+            (fixed-function) Color blending: applies operations to mix different fragments that map to the same pixe in the framebuffer
+
+        Graphics pipeline in vulkan is immutable
+        If you wish to make a change, most of the times, you'd have to completely recreate the graphics pipeline
+
+        unlike earlier APIs vulkan shader code has to be specified in a bytecode format opposed to a human read-able syntax GLSL and HLSL
+        The advantages of using this format is that the compilers written by GPU vendors to turn shader code into native code are significantly less complex
+        Thankfully Khronos has released their own vendor-independent compiler that compiles GLSL to SPIR-V.
+        We'll be using glslc.exe created by google. Which is the compiler for compiling glsl to spir-v which is already included in the vulkan sdk
+
+        GLSL is a shading language with a c-style syntax
+    */
+    void createGraphicsPipeline() {
+
     }
 
     void createImageViews() {
-        // We'll resize or image views vector to be the same size as all of our swap chain images
+        // We'll resize our image views vector to be the same size the total of our swap chain images
         swapChainImageViews.resize(swapChainImages.size());
 
         // Iterate through over all of the swap chain images
+        // We're creating an image view for each swap chain image
         for (size_t i = 0; i < swapChainImages.size(); i++) {
             VkImageViewCreateInfo createInfo{};
             createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
