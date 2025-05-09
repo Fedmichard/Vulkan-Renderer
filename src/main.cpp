@@ -679,11 +679,27 @@ private:
         auto vertShaderModule = createShaderModule(vertShaderCode);
         auto fragShaderModule = createShaderModule(fragShaderCode);
 
+        // Vert Shader
         // To actually use the shaders we'll need to assign them to a specific pipeline stage through VkPipelineShaderStageCreateInfo
         VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
         vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
         // Set our vertShader into the vertex shader stage
         vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
+        // specify shader module with the code and the function to invoke (known as the entry point)
+        // it's possible to combine multiple fragment shaders into a single shader module and use different entry points to differentiate between their behaviors
+        vertShaderStageInfo.module = vertShaderModule;
+        vertShaderStageInfo.pName = "main";
+
+        // Frag Shader
+        VkPipelineShaderStageCreateInfo fragShaderStageInfo{};
+        fragShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+        fragShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+        fragShaderStageInfo.module = fragShaderModule;
+        fragShaderStageInfo.pName = "main";
+
+        // Array that holds both of these structs
+        // This finalizes everything we need to do for our programmable stages, now we need to do the fixed-function
+        VkPipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo, fragShaderStageInfo};
 
         // since the compilation and linking of the SPIR-V doesn't happen until graphics pipeline is created we can delete at the end of function
         vkDestroyShaderModule(device, vertShaderModule, nullptr);
