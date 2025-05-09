@@ -609,10 +609,26 @@ private:
 
     /*
         Before we can pass our code to the graphics pipeline we must first wrap it in a VkShaderModule
+        This will take in a buffer with the bytecode and create a shader module out of it
+
+        Shader moduels are just a thin wrapper around the shader bytecode that we've loaded from a file and the functions defined in it
+        The compilation and linking of the SPIR-V bytecode to machine code for execution by the gpu doesn't happen until pipeline is created
     */
-   VkShaderModule createShaderModule() {
-    
-   }
+    VkShaderModule createShaderModule(const std::vector<char>& code) {
+        VkShaderModuleCreateInfo createInfo{};
+        createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+        createInfo.codeSize = code.size();
+        // the size of the bytecode, inside our code vector, is specified in bytes
+        // reinterpret is powerful but potentially dangerous if used incorrectly because it performs a low-level reinterpretation of the bit pattern of a value from one type to another
+        createInfo.pCode = reinterpret_cast<const uint32_t*>(code.data());
+
+        VkShaderModule shaderModule;
+        if (vkCreateShaderModule(device, &createInfo, nullptr, &shaderModule) != VK_SUCCESS) {
+            throw std::runtime_error("failed to create shader module!");
+        }
+
+        return shaderModule;
+    }    
 
     // Store and initiate each vulkan object
     void initVulkan() {
@@ -659,6 +675,19 @@ private:
 
         std::cout << vertShaderCode.size() << std::endl;
         std::cout << fragShaderCode.size() << std::endl;
+
+        auto vertShaderModule = createShaderModule(vertShaderCode);
+        auto fragShaderModule = createShaderModule(fragShaderCode);
+
+        // To actually use the shaders we'll need to assign them to a specific pipeline stage through VkPipelineShaderStageCreateInfo
+        VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
+        vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+        // Set our vertShader into the vertex shader stage
+        vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
+
+        // since the compilation and linking of the SPIR-V doesn't happen until graphics pipeline is created we can delete at the end of function
+        vkDestroyShaderModule(device, vertShaderModule, nullptr);
+        vkDestroyShaderModule(device, fragShaderModule, nullptr);
     }
 
     void createImageViews() {
