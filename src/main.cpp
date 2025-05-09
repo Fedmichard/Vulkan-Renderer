@@ -701,6 +701,81 @@ private:
         // This finalizes everything we need to do for our programmable stages, now we need to do the fixed-function
         VkPipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo, fragShaderStageInfo};
 
+        /*
+            Even the majority of the pipeline state (which is just the overall configurations and properties that make up the entire pipeline) is immutable (unchanging)
+            There are certain aspects that can be changed without having to recreate the entire pipeline
+
+            Anything inside this vector will be ignored during configuration
+            This causes the configuration of these values to be ignored and you'll be able to specify the data at draw time
+            results in a much more flexible setup
+        */
+        std::vector<VkDynamicState> dynamicStates = {
+            VK_DYNAMIC_STATE_VIEWPORT,
+            VK_DYNAMIC_STATE_SCISSOR
+        };
+
+        VkPipelineDynamicStateCreateInfo dynamicState{};
+        dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+        dynamicState.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
+        dynamicState.pDynamicStates = dynamicStates.data();
+
+        /*
+        1. Vertex Input
+            describes the format of the vertex data that will be passed to the vertex shader; describes them in one of 2 ways
+            bindings: spacing between data and whether the data is per-vertex or per-instance
+            attribute descriptions: type of the attributes passed to the vertex shader, which binding to load them from and at which offset
+
+            Since we hardcoded this vertex data into our shader for now, we'll specify that there is no vertex data to load for now and get back to it later when we create a vertex buffer
+        */
+        VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
+        vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+        vertexInputInfo.vertexBindingDescriptionCount = 0;
+        vertexInputInfo.pVertexBindingDescriptions = nullptr;
+        vertexInputInfo.vertexAttributeDescriptionCount = 0;
+        vertexInputInfo.pVertexAttributeDescriptions = nullptr;
+
+        /*
+        2. Input Assembly
+            describes what kind of geometry will be drawn from the vertices and if primitive restart should be enabled
+        */
+       VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
+       inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+       inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+       inputAssembly.primitiveRestartEnable = VK_FALSE;
+
+       /*
+       3. Viewport and scissors (dynamic states)
+           The view port describes the region of the framebuffer that the ouput will be rendered too
+           Almost always (0, 0) to the width and height
+
+           The size of the swap chain and its images may differ from the width and height of window
+           the swap chain images will be used as framebuffers later on so we should stick to their size
+           viewport define the transformation from the image to the framebuffer
+       */
+        VkViewport viewport{};
+        viewport.x = 0.0f;
+        viewport.y = 0.0f;
+        viewport.width = (float) swapChainExtent.width;
+        viewport.height = (float) swapChainExtent.height;
+        viewport.minDepth = 0.0f;
+        viewport.maxDepth = 1.0f;
+
+        // Scissor rectangles define in which regions pixels will actually be stored
+        // Any pixels outside the scissor rectangles will be discarded by the rasterizer
+        // It's more like a filter than a transformation
+        VkRect2D scissor{};
+        scissor.offset = { 0, 0 };
+        scissor.extent = swapChainExtent;
+
+        // then you only need to specify their count at pipeline creation time
+        // The actual viewport and scissor rectangle will then later be set up at drawing time
+        VkPipelineViewportStateCreateInfo viewportState{};
+        viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+        viewportState.viewportCount = 1;
+        viewportState.pViewports = &viewport;
+        viewportState.scissorCount = 1;
+        viewportState.pScissors = &scissor;
+
         // since the compilation and linking of the SPIR-V doesn't happen until graphics pipeline is created we can delete at the end of function
         vkDestroyShaderModule(device, vertShaderModule, nullptr);
         vkDestroyShaderModule(device, fragShaderModule, nullptr);
