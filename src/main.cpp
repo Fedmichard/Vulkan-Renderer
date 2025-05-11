@@ -776,6 +776,19 @@ private:
         viewportState.scissorCount = 1;
         viewportState.pScissors = &scissor;
 
+        /*
+        4.  Rasterizer
+            Takes the geometry that is shaped by the vertices from the vertex shader and turns it into fragments to be colored by the fragment shader
+            It also performs depth testing, face culling, and the scissor test
+            it can also be configured to output fragments that fill entire polygons or just the edges (wireframe rendering)
+
+            if depth clamp was true the geometry would never pass through the rasterizer stage
+            Disables any output to the framebuffer
+        */
+        VkPipelineRasterizationStateCreateInfo rasterizer{};
+        rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+        rasterizer.depthClampEnable = VK_FALSE;
+
         // since the compilation and linking of the SPIR-V doesn't happen until graphics pipeline is created we can delete at the end of function
         vkDestroyShaderModule(device, vertShaderModule, nullptr);
         vkDestroyShaderModule(device, fragShaderModule, nullptr);
