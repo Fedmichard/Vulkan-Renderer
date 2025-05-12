@@ -122,6 +122,11 @@ private:
     // An image view is quite literally a view into an image, it describes how to access the image and which part of the image to access
     std::vector<VkImageView> swapChainImageViews; // We'll leave it as a basic image view for every image in the swap chain so we can use them as color targets
 
+    // We must create a pipeline layout even though we won't be using it right now, we'll just leave it empty
+    // We can pass uniform values in shaders, which are global values that can be accessed and changed at drawtime through our entire pipeline without the need for recompiling
+    // They are most common for passing transformation matrix to the vertex shader or to create texture samplers
+    VkPipelineLayout pipelineLayout;
+
     /*
         Bundles all of our queue family indices
         Each queue family on physical device is given a unique index (unint32_t)
@@ -640,7 +645,21 @@ private:
         createLogicalDevice();
         createSwapChain();
         createImageViews();
+        createRenderPass();
         createGraphicsPipeline();
+    }
+
+    /*
+        before creating the pipeline we must tell vulkan about the framebuffer attachments that will be used while rendering
+        specify how many color and depth buffers there will be, how many samples to use for each, and how their contents should be handled throughout rendering operations
+    */
+    void createRenderPass() {
+        // in our case we'll have just a single color buffer attachment represented by one of the images from the swap chain
+        VkAttachmentDescription colorAttachment{};
+        // format should match format of our swap chain images
+        colorAttachment.format = swapChainImageFormat;
+        // We're not doing anything with multisampling so we're only doing 1 sample
+        colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
     }
 
     /*
@@ -738,20 +757,20 @@ private:
         2. Input Assembly
             describes what kind of geometry will be drawn from the vertices and if primitive restart should be enabled
         */
-       VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
-       inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-       inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-       inputAssembly.primitiveRestartEnable = VK_FALSE;
+        VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
+        inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+        inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+        inputAssembly.primitiveRestartEnable = VK_FALSE;
 
-       /*
-       3. Viewport and scissors (dynamic states)
-           The view port describes the region of the framebuffer that the ouput will be rendered too
-           Almost always (0, 0) to the width and height
+        /*
+        3. Viewport and scissors (dynamic states)
+            The view port describes the region of the framebuffer that the ouput will be rendered too
+            Almost always (0, 0) to the width and height
 
-           The size of the swap chain and its images may differ from the width and height of window
-           the swap chain images will be used as framebuffers later on so we should stick to their size
-           viewport define the transformation from the image to the framebuffer
-       */
+            The size of the swap chain and its images may differ from the width and height of window
+            the swap chain images will be used as framebuffers later on so we should stick to their size
+            viewport define the transformation from the image to the framebuffer
+        */
         VkViewport viewport{};
         viewport.x = 0.0f;
         viewport.y = 0.0f;
@@ -791,6 +810,81 @@ private:
         // Polygon mode determines how fragments are generated for geometry
         // There is Fill(fill with fragments), Line(edges are drawn as lines), and point(polygon vertices are drawn as points)
         rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
+        // describes the thickness of lines in terms of number of fragments. Anything higher than 1.0f requires you to enable wideLines gpu feature
+        rasterizer.lineWidth = 1.0f;
+        /*
+            Determines the type of face culling to use, 
+            You can disable it, cull the front, cull the back, or both
+            Checks all the faces of a shape facing the viewer and renders those while discarding all that are back facing
+            You can do the same by just rendering the faces in the back and not render the ones facing the viewer
+
+            frontface variables specifies the vertex order for faces to be considered front-facing 
+        */
+        rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
+        rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
+        // The rasterizer can alter the depth values by adding a constant value or biasing them based on the fragments slope
+        rasterizer.depthBiasEnable = VK_FALSE;
+        rasterizer.depthBiasConstantFactor = 0.0f;
+        rasterizer.depthBiasClamp = 0.0f;
+        rasterizer.depthBiasSlopeFactor = 0.0f;
+
+        /*
+            This struct configures multisampling which is one of the ways to perform anti-aliasing
+            It combines the fragment shader results of multiple polygons that rasterize to the same pixel
+            Most noticeable around edges
+
+            disabling it for now
+        */
+        VkPipelineMultisampleStateCreateInfo multisampling{};
+        multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+        multisampling.sampleShadingEnable = VK_FALSE;
+        multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+        multisampling.minSampleShading = 1.0f; // optional
+        multisampling.pSampleMask = nullptr;
+        multisampling.alphaToCoverageEnable = VK_FALSE;
+        multisampling.alphaToOneEnable = VK_FALSE;
+
+        /*
+            After a frag shader has returned a color, it must be combined with a color that's already in the framebuffer
+            This is known as color blending and there's 2 ways to do this
+            1. Mix the old and new value to produce final color
+            2. Combined the old and new value using a bitwise operation
+
+            1. this per-framebuffer struct allows you to configure the first way of color blending
+        */
+        VkPipelineColorBlendAttachmentState colorBlendAttachment{};
+        colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_A_BIT;
+        colorBlendAttachment.blendEnable = VK_FALSE;
+        colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
+        colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ZERO;
+        colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
+        colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+        colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+        colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
+
+        // 2. This structure references the array of structs for all of the framebuffers and allows you to set blend constants that you can use as blend factors in the calculations
+        VkPipelineColorBlendStateCreateInfo colorBlending{};
+        colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+        colorBlending.logicOpEnable = VK_FALSE;
+        colorBlending.logicOp = VK_LOGIC_OP_COPY;
+        colorBlending.attachmentCount = 1;
+        colorBlending.pAttachments = &colorBlendAttachment;
+        // 4 available blend constants in the struct
+        colorBlending.blendConstants[0] = 0.0f;
+        colorBlending.blendConstants[1] = 0.0f;
+        colorBlending.blendConstants[2] = 0.0f;
+        colorBlending.blendConstants[3] = 0.0f;
+
+        VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
+        pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+        pipelineLayoutInfo.setLayoutCount = 0;
+        pipelineLayoutInfo.pSetLayouts = nullptr;
+        pipelineLayoutInfo.pushConstantRangeCount = 0;
+        pipelineLayoutInfo.pPushConstantRanges = nullptr;
+
+        if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS) {
+            throw std::runtime_error("failed to create pipeline layout!");
+        }
 
         // since the compilation and linking of the SPIR-V doesn't happen until graphics pipeline is created we can delete at the end of function
         vkDestroyShaderModule(device, vertShaderModule, nullptr);
@@ -1100,6 +1194,7 @@ private:
     // Every Vulkan object that we create needs to be destroyed when we no longer need it
     // It is possible to perform automatic resource management using RAII or smart pointers
     void cleanup() {
+        vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
         // since we explicitly created the image views ourselves we need to loop through it to delete everything
         for (auto imageView : swapChainImageViews) {
             vkDestroyImageView(device, imageView, nullptr);
