@@ -788,6 +788,9 @@ private:
         VkPipelineRasterizationStateCreateInfo rasterizer{};
         rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
         rasterizer.depthClampEnable = VK_FALSE;
+        // Polygon mode determines how fragments are generated for geometry
+        // There is Fill(fill with fragments), Line(edges are drawn as lines), and point(polygon vertices are drawn as points)
+        rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
 
         // since the compilation and linking of the SPIR-V doesn't happen until graphics pipeline is created we can delete at the end of function
         vkDestroyShaderModule(device, vertShaderModule, nullptr);
