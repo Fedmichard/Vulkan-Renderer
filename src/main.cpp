@@ -130,6 +130,9 @@ private:
     // They are most common for passing transformation matrix to the vertex shader or to create texture samplers
     VkPipelineLayout pipelineLayout;
 
+    // our pipeline
+    VkPipeline graphicsPipeline;
+
     /*
         Bundles all of our queue family indices
         Each queue family on physical device is given a unique index (unint32_t)
@@ -940,6 +943,37 @@ private:
             throw std::runtime_error("failed to create pipeline layout!");
         }
 
+        // now we can create our actual pipeline
+        VkGraphicsPipelineCreateInfo pipelineInfo{};
+        // we start by referencing the array of our pipeline shader stage
+        // Our vertex and fragment shaders
+        pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+        pipelineInfo.stageCount = 2;
+        pipelineInfo.pStages = shaderStages;
+        // Then we reference all of the structs describing the fixed-function stage
+        pipelineInfo.pVertexInputState = &vertexInputInfo;
+        pipelineInfo.pInputAssemblyState = &inputAssembly;
+        pipelineInfo.pViewportState = &viewportState;
+        pipelineInfo.pRasterizationState = &rasterizer;
+        pipelineInfo.pMultisampleState = &multisampling;
+        pipelineInfo.pDepthStencilState = nullptr;
+        pipelineInfo.pColorBlendState = &colorBlending;
+        pipelineInfo.pDynamicState = &dynamicState;
+        // Then we get our pipeline layout
+        pipelineInfo.layout = pipelineLayout;
+        // then we can finally reference our renderpass and the index of our sub pass
+        pipelineInfo.renderPass = renderPass;
+        pipelineInfo.subpass = 0;
+        // these are optional, vulkan lets you create a new pipeline by deriving from an existing pipeline
+        pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
+        pipelineInfo.basePipelineIndex = -1;
+
+        // the vkCreateGraphicsPipelines function is designed to create multiple pipelines using multiple vkGraphicsPipelineCreateInfo objects
+        // the second param references an optional VkPipelineCache object which can be used to store and reuse data relevant to pipelien creation across multiple calls
+        if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipeline) != VK_SUCCESS) {
+            throw std::runtime_error("failed to create graphics pipeline!");
+        }
+
         // since the compilation and linking of the SPIR-V doesn't happen until graphics pipeline is created we can delete at the end of function
         vkDestroyShaderModule(device, vertShaderModule, nullptr);
         vkDestroyShaderModule(device, fragShaderModule, nullptr);
@@ -1248,6 +1282,8 @@ private:
     // Every Vulkan object that we create needs to be destroyed when we no longer need it
     // It is possible to perform automatic resource management using RAII or smart pointers
     void cleanup() {
+        vkDestroyPipeline(device, graphicsPipeline, nullptr);
+        
         vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
 
         vkDestroyRenderPass(device, renderPass, nullptr);
