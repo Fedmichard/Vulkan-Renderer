@@ -133,6 +133,10 @@ private:
     // our pipeline
     VkPipeline graphicsPipeline;
 
+    // now we can create the frame buffers so we can specify the attachments expected by the render pass during creation
+    // our render pass will expect a single framebuffer with the same format as a swap chain image
+    std::vector<VkFramebuffer> swapChainFramebuffers;
+
     /*
         Bundles all of our queue family indices
         Each queue family on physical device is given a unique index (unint32_t)
@@ -653,6 +657,32 @@ private:
         createImageViews();
         createRenderPass();
         createGraphicsPipeline();
+        createFrameBuffers();
+    }
+ 
+    // Now we can create our framebuffers
+    void createFrameBuffers() {
+        // first we must resize our framebuffer vector by the size of our vkImageViews
+        swapChainFramebuffers.resize(swapChainImageViews.size());
+
+        for (int i = 0; i < swapChainImageViews.size(); i++) {
+            // the attachment for each swap chain is going to be an image view
+            VkImageView attachments[] = {
+                swapChainImageViews[i]
+            };
+
+            VkFramebufferCreateInfo framebufferInfo{};
+            framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+            framebufferInfo.renderPass = renderPass;
+            framebufferInfo.attachmentCount = 1;
+            framebufferInfo.pAttachments = attachments;
+            framebufferInfo.width = swapChainExtent.width;
+            framebufferInfo.height = swapChainExtent.height;
+
+            if (vkCreateFramebuffer(device, &framebufferInfo, nullptr, &swapChainFramebuffers[i]) != VK_SUCCESS) {
+                throw std::runtime_error("failed to create framebuffer!");
+            }
+        }
     }
 
     /*
@@ -1282,8 +1312,12 @@ private:
     // Every Vulkan object that we create needs to be destroyed when we no longer need it
     // It is possible to perform automatic resource management using RAII or smart pointers
     void cleanup() {
-        vkDestroyPipeline(device, graphicsPipeline, nullptr);
+        for (auto framebuffer : swapChainFramebuffers) {
+            vkDestroyFramebuffer(device, framebuffer, nullptr);
+        }
         
+        vkDestroyPipeline(device, graphicsPipeline, nullptr);
+
         vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
 
         vkDestroyRenderPass(device, renderPass, nullptr);
