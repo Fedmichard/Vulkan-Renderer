@@ -767,10 +767,12 @@ private:
         fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
         fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
-        if (vkCreateSemaphore(device, &semaphoreInfo, nullptr, imageAvailableSemaphores.data()) ||
-            vkCreateSemaphore(device, &semaphoreInfo, nullptr, renderFinishedSemaphores.data()) ||
-            vkCreateFence(device, &fenceInfo, nullptr, inFlightFences.data()) != VK_SUCCESS) {
-                throw std::runtime_error("failed to create semaphores!");
+        for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+            if (vkCreateSemaphore(device, &semaphoreInfo, nullptr, &imageAvailableSemaphores[i]) ||
+                vkCreateSemaphore(device, &semaphoreInfo, nullptr, &renderFinishedSemaphores[i]) ||
+                vkCreateFence(device, &fenceInfo, nullptr, &inFlightFences[i]) != VK_SUCCESS) {
+                    throw std::runtime_error("failed to create semaphores!");
+            }
         }
     }
 
@@ -784,6 +786,7 @@ private:
     */
     void createCommandBuffers() {
         commandBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+
         VkCommandBufferAllocateInfo allocInfo{};
         allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
         allocInfo.commandPool = commandPool;
@@ -1243,6 +1246,20 @@ private:
             throw std::runtime_error("failed to create image views!");
            }
         }
+    }
+
+    void cleanupSwapChain() {
+
+    }
+
+    // there are some circumstances that aren't being handled correct such as the swap chain not being compatible with a window surface because the window size changes
+    // we have to catch these certain events
+    void recreateSwapChain() {
+        vkDeviceWaitIdle(device);
+
+        createSwapChain();
+        createImageViews();
+        createFrameBuffers();
     }
 
     // Now we can finally create our swap chain
