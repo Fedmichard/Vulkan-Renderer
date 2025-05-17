@@ -206,6 +206,10 @@ private:
     // sync point between cpu and gpu operations
     std::vector<VkFence> inFlightFences;
 
+    // this is going to be used to handle resizes explicitly 
+    // we'll use this to flag when a resize has happened 
+    bool framebufferResized = false;
+
     // Initialize GLFW and create a window
     void initWindow() {
         // Initializes glfw library, but it was originally designed for an OpenGL context
@@ -219,12 +223,23 @@ private:
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
         
         // Prevent window resizing
-        glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+        // glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
         // Create GLFW window
         // WIDTH, HEIGHT, "WINDOW NAME", Specify which monitor, OpenGL specific
         window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan", nullptr, nullptr);
+        // we do this because GLFW is a C library and doesn't handle the concept of this from classes
+        // so we're passing a pointer of our HelloTriangleApplication class 
+        glfwSetWindowUserPointer(window, this);
+        glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
 
+    }
+
+    // we're creating a static function as a callback because GLFW doesn't know how to properly call a member function with the correct "this" pointer 
+    // static members belong to the class themselves and not a specific instance
+    static void framebufferResizeCallback(GLFWwindow *window, int width, int height) {
+        auto app = reinterpret_cast<HelloTriangleApplication*>(glfwGetWindowUserPointer(window));
+        app->framebufferResized = true;
     }
 
     // Setting up a callback function to handle messages and its associated details
@@ -1249,16 +1264,39 @@ private:
     }
 
     void cleanupSwapChain() {
+        for (auto framebuffer : swapChainFramebuffers) {
+            vkDestroyFramebuffer(device, framebuffer, nullptr);
+        }
 
+        // since we explicitly created the image views ourselves we need to loop through it to delete everything
+        for (auto imageView : swapChainImageViews) {
+            vkDestroyImageView(device, imageView, nullptr);
+        }
+
+        vkDestroySwapchainKHR(device, swapChain, nullptr);
     }
 
     // there are some circumstances that aren't being handled correct such as the swap chain not being compatible with a window surface because the window size changes
     // we have to catch these certain events
     void recreateSwapChain() {
+        int width = 0, height = 0;
+        glfwGetFramebufferSize(window, &width, &height);
+        while (width == 0 || height == 0) {
+            glfwGetFramebufferSize(window, &width, &height);
+            glfwWaitEvents();
+        }
+        // we call this function so we don't touch resources that may still be in use
         vkDeviceWaitIdle(device);
 
+        // make sure the old versions of these objets are cleaned up before recreation
+        cleanupSwapChain();
+
+        // swap chain will have to be recreated because that is our queue of images
         createSwapChain();
+        // image views will have to be recreated because they are based on our swap chain images
         createImageViews();
+        // frame buffers directly depend on the swapchain 
+        // we don't recreate the framebuffer for simplicity but we don't since there isn't a chance of the image format to change
         createFrameBuffers();
     }
 
@@ -1531,12 +1569,34 @@ private:
         // At the start of the frame we wait until the previous frame has finished so command buffer and semaphores are available to use
         // timeout disabled
         vkWaitForFences(device, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
-        // after waiting we manually reset the fence to the unsignaled state
-        vkResetFences(device, 1, &inFlightFences[currentFrame]);
-
         // now we will acquire an image from our swap chain to render to
         uint32_t imageIndex;
-        vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
+
+        /*
+            luckily vulkan will automatically tell us if our swap chain becomes incompatible or changes
+            as soon as one of our swap chain images aren't compatible with the swap chain we'll receive an error message from our validation layer
+            when that occurs we will reset it depending on the current settings of our surface
+            VK_ERROR_OUT_OF_DATE_KHR means the swap chain has become incompatible with the surface and can no longer be used for rendering (usually screen size changed)
+            VK_SUBOPTIMAL_KHR means that the swap chain can still be used to present to the surface but the surface properties aren't matched exactly
+        */
+        VkResult result = vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
+
+        if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || framebufferResized) {
+            framebufferResized = false;
+            recreateSwapChain();
+            return;
+        } else if (result != VK_SUCCESS) {
+            throw std::runtime_error("failed to acquire swap chain image!");
+        }
+
+        /*
+            after waiting we manually reset the fence to the unsignaled state because we signaled it in the beginning to continue
+            We want to avoid resetting our fence until we know we will for sure be submitting work with it
+            If we reset the fence and our program returns an error that caused our swap chain to be reset below, it will return to drawframe as unsignaled
+            This will cause our program to half forever since our fence will remain in the unsignaled state preventing our application from ever getting a signal to continue
+            only reset if we an image is acquired for submission
+        */
+        vkResetFences(device, 1, &inFlightFences[currentFrame]);
 
         // reset command buffer so we can use for recording to
         vkResetCommandBuffer(commandBuffers[currentFrame], 0);
@@ -1590,7 +1650,15 @@ private:
         presentInfo.pResults = nullptr;
 
         // submits the request to present an image to the swap chain
-        vkQueuePresentKHR(presentQueue, &presentInfo);
+        result = vkQueuePresentKHR(presentQueue, &presentInfo);
+
+        if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || framebufferResized) {
+            framebufferResized = false;
+            recreateSwapChain();
+            return;
+        } else if (result != VK_SUCCESS) {
+            throw std::runtime_error("failed to present swap chain image");
+        }
 
         // so we can only get 0 and 1 value when indexing for our next frame
         currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
@@ -1612,6 +1680,8 @@ private:
     // Every Vulkan object that we create needs to be destroyed when we no longer need it
     // It is possible to perform automatic resource management using RAII or smart pointers
     void cleanup() {
+        cleanupSwapChain();
+
         for (auto semaphore : imageAvailableSemaphores) {
             vkDestroySemaphore(device, semaphore, nullptr);
         }
@@ -1626,22 +1696,11 @@ private:
 
         vkDestroyCommandPool(device, commandPool, nullptr);
 
-        for (auto framebuffer : swapChainFramebuffers) {
-            vkDestroyFramebuffer(device, framebuffer, nullptr);
-        }
-
         vkDestroyPipeline(device, graphicsPipeline, nullptr);
 
         vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
 
         vkDestroyRenderPass(device, renderPass, nullptr);
-
-        // since we explicitly created the image views ourselves we need to loop through it to delete everything
-        for (auto imageView : swapChainImageViews) {
-            vkDestroyImageView(device, imageView, nullptr);
-        }
-
-        vkDestroySwapchainKHR(device, swapChain, nullptr);
 
         vkDestroyDevice(device, nullptr);
 
