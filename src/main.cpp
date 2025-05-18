@@ -19,6 +19,7 @@ Implement picking.
 // #define VK_USE_PLATFORM_WIN32_KHR
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
+#include <glm/glm.hpp>
 
 #include <iostream>
 #include <fstream>
@@ -143,6 +144,35 @@ struct SwapChainSupportDetails {
     std::vector<VkPresentModeKHR> presentModes;
 };
 
+struct Vertex {
+    // our actual vertex in a 2d space
+    // always need this
+    glm::vec2 pos;
+    // an attribute associated with our vertex
+    // this is the vertices color attribute
+    glm::vec3 color;
+
+    /*
+        the next step would be telling vulkan how to pass this data format to the vertex data when we pass it into gpu memory
+        a vertex binding describes the rate to load data from memory throughout vertices
+
+        specifies the number of bytes between data entries and whether to move to next data entry after each vertex or each instance
+    */
+    static VkVertexInputBindingDescription bindingDescription() {
+        VkVertexInputBindingDescription bindingDescription{};
+        // specifies the index of the binding in the array of bindings
+        // we only have one binding so it's 0 (the first one)
+        bindingDescription.binding = 0;
+        // number of bytes from one entry to the next
+        bindingDescription.stride = sizeof(Vertex);
+        // VK_VERTEX_INPUT_RATE_VERTEX move on to the next data entry after each vertex
+        // VK_VERTEX_INPUT_RATE_INSTANCE move on to the next data entry after each instance
+        bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+        return bindingDescription;
+    }
+};
+
 class HelloTriangleApplication{
 private:
     // GLFW window instance
@@ -209,6 +239,14 @@ private:
     // this is going to be used to handle resizes explicitly 
     // we'll use this to flag when a resize has happened 
     bool framebufferResized = false;
+
+    // our vectors
+    const std::vector<Vertex> vertices = {
+        // Position     // Color
+        {{0.0f, -0.5f}, {1.0f, 0.0f, 0.0f}},
+        {{0.5f, 0.5f},  {0.0f, 1.0f, 0.0f}},
+        {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}
+    };
 
     // Initialize GLFW and create a window
     void initWindow() {
