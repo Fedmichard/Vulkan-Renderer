@@ -24,6 +24,7 @@ Implement picking.
 #include <iostream>
 #include <fstream>
 #include <optional>
+#include <array>
 #include <vector>
 #include <map>
 #include <limits>
@@ -157,6 +158,10 @@ struct Vertex {
         a vertex binding describes the rate to load data from memory throughout vertices
 
         specifies the number of bytes between data entries and whether to move to next data entry after each vertex or each instance
+        can think of it as one stream or layout of vertex data and how it's organized in memory for retrieval and processing
+        defines overall layout of one chunk of vertex data, being this one struct
+
+        more about the structure of the data scheme
     */
     static VkVertexInputBindingDescription bindingDescription() {
         VkVertexInputBindingDescription bindingDescription{};
@@ -167,9 +172,35 @@ struct Vertex {
         bindingDescription.stride = sizeof(Vertex);
         // VK_VERTEX_INPUT_RATE_VERTEX move on to the next data entry after each vertex
         // VK_VERTEX_INPUT_RATE_INSTANCE move on to the next data entry after each instance
+        // so whether we're advancing per vertex or per instace
         bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
         return bindingDescription;
+    }
+
+    // we're creating a fixed size array of 2 VkVertexInputAttributeDescriptions
+    // input into you're shader, describes how an individual vertex attribute is extracted from a chunk of vertex data originating from a specific binding description
+    // Since we have 2 attributes being position and color, we'll have an array of 2 attributes which will define how each are extracted
+    static std::array<VkVertexInputAttributeDescription, 2> getAttributeDescriptions() {
+        std::array<VkVertexInputAttributeDescription, 2> attributeDescriptions{};
+
+        // how we extract position attribute
+        // binding is the unique identifier that connects description to vertex buffer
+        attributeDescriptions[0].binding = 0;
+        attributeDescriptions[0].location = 0;
+        // its represents 2 32 bit integer values (pos.x, pos.y)
+        // aka a vec2
+        attributeDescriptions[0].format = VK_FORMAT_R32G32_SFLOAT;
+        attributeDescriptions[0].offset = offsetof(Vertex, pos);
+
+        // how we extract color attribute
+        attributeDescriptions[1].binding = 0;
+        attributeDescriptions[1].location = 1;
+        // aka a vec3
+        attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
+        attributeDescriptions[1].offset = offsetof(Vertex, color);
+
+        return attributeDescriptions;
     }
 };
 
@@ -224,6 +255,9 @@ private:
 
     // our command pool
     VkCommandPool commandPool;
+
+    // our vertex buffer
+    VkBuffer vertexBuffer;
 
     // EACH FRAME SHOULD HAVE IT'S OWN COMMAND BUFFERS, SEMAPHORES, AND FENCES; SINCE WE ARE GONNA HAVE 2 IN FLIGHT FRAMES AT A TIME
     // our command buffer
@@ -801,8 +835,33 @@ private:
         createGraphicsPipeline();
         createFrameBuffers();
         createCommandPool();
+        createVertexBuffer();
         createCommandBuffers();
         createSyncObjects();
+    }
+
+    /*
+        Creating a vertex buffer doesn't have it's own vk command so we'll create a general buffer
+    */
+    void createVertexBuffer() {
+        VkBufferCreateInfo bufferInfo{};
+        bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+        // we do this so we can get the size of the actual data we own
+        // doing just sizeof(vertices) would be the size of std::vector<Vertex> which is what our vertices variable is
+        bufferInfo.size = sizeof(vertices[0]) * vertices.size();
+        // What kind of buffer is it
+        bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+        // buffers can be owned by a specific queue family or be shared between multiple at the same time
+        // our vertices will only be used by the graphics queue so we'll stick to this
+        bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+        // At this point our buffer is created but it's not actually filled with any memory
+        if (vkCreateBuffer(device, &bufferInfo, nullptr, &vertexBuffer) != VK_SUCCESS) {
+            std::runtime_error("failed to create vertex buffer!");
+        }
+
+        // the first step of allocating memory for the buffer is to query the memory requirements
+        
     }
 
     /*
@@ -876,6 +935,8 @@ private:
     }
  
     // Now we can create our framebuffers
+    // Framebuffer just represents a single instance of a rendering target, in our case it'll be an instance of an image and some of it's information
+    // Think of the renderpass as a recipe and the framebuffer as the tools needed to create our recipe (which is our iamge in this case)
     void createFrameBuffers() {
         // first we must resize our framebuffer vector by the size of our vkImageViews
         swapChainFramebuffers.resize(swapChainImageViews.size());
@@ -908,6 +969,8 @@ private:
 
         the renderpass is a sequence of rendering operations including the framebuffer attachments that will be used (color, depth, stencil)
         how they'll be loaded and stored, and any synchronization dependencies between subpasses
+
+        THINK OF IT AS A BLUEPRINT FOR THE VULKAN  OF A SEQUENCE OF OPERATIONS AND HOW THEY'LL INTERACT WITH AN IMAGE
     */
     void createRenderPass() {
         // in our case we'll have just a single color buffer attachment represented by one of the images from the swap chain
@@ -1080,12 +1143,15 @@ private:
 
             Since we hardcoded this vertex data into our shader for now, we'll specify that there is no vertex data to load for now and get back to it later when we create a vertex buffer
         */
+        auto bindingDescriptions = Vertex::bindingDescription();
+        auto attributeDescriptions = Vertex::getAttributeDescriptions();
+
         VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
         vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-        vertexInputInfo.vertexBindingDescriptionCount = 0;
-        vertexInputInfo.pVertexBindingDescriptions = nullptr;
-        vertexInputInfo.vertexAttributeDescriptionCount = 0;
-        vertexInputInfo.pVertexAttributeDescriptions = nullptr;
+        vertexInputInfo.vertexBindingDescriptionCount = 1;
+        vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());
+        vertexInputInfo.pVertexBindingDescriptions = &bindingDescriptions;
+        vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
 
         /*
         2. Input Assembly
@@ -1719,6 +1785,8 @@ private:
     // It is possible to perform automatic resource management using RAII or smart pointers
     void cleanup() {
         cleanupSwapChain();
+
+        vkDestroyBuffer(device, vertexBuffer, nullptr);
 
         for (auto semaphore : imageAvailableSemaphores) {
             vkDestroySemaphore(device, semaphore, nullptr);
