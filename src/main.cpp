@@ -257,7 +257,11 @@ private:
     VkCommandPool commandPool;
 
     // our vertex buffer
-    VkBuffer vertexBuffer;
+    // logical step
+    VkBuffer vertexBuffer; 
+    // handle to the actual physically allocated block of GPU memory, this represents a chunk of memory on the GPU
+    // this is needed so we can bind our buffer to an actual
+    VkDeviceMemory vertexBufferMemory;
 
     // EACH FRAME SHOULD HAVE IT'S OWN COMMAND BUFFERS, SEMAPHORES, AND FENCES; SINCE WE ARE GONNA HAVE 2 IN FLIGHT FRAMES AT A TIME
     // our command buffer
@@ -277,7 +281,7 @@ private:
     // our vectors
     const std::vector<Vertex> vertices = {
         // Position     // Color
-        {{0.0f, -0.5f}, {1.0f, 0.0f, 0.0f}},
+        {{0.0f, -0.5f}, {1.0f, 1.0f, 1.0f}},
         {{0.5f, 0.5f},  {0.0f, 1.0f, 0.0f}},
         {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}
     };
@@ -786,13 +790,20 @@ private:
         renderPassInfo.clearValueCount = 1;
         renderPassInfo.pClearValues = &clearColor;
 
-        // now we can begin our render pass
+        // now we can begin our render pass. This is essentially saying that when the command buffer executes start a renderpass with some specific expected settings
+        // this is the blueprint for a rendering sequence. since our blueprint expects color attachments this will relate to our draw commands
         // VK_SUBPASS_CONTENTS_INLINE means the render pass commands will be embedded in the primary command buffer and no secondary cmd buffers will be executed
         vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE); // once again we're not using secondary command buffers
 
         // now bind the graphics pipeline
         // second option decides if the pipeline object is a graphics or a compute pipeline (we created a graphics pipeline)
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
+
+        // now we telling vulkan to bind these vertex buffers to the pipeline essentially
+        // since our pipeline is already expecting data from a vertex buffer, when your passing cmds to gpu it'll know to read data from the buffer identified by vertexBuffer
+        VkBuffer vertexBuffers[] = { vertexBuffer };
+        VkDeviceSize offsets[] = { 0 };
+        vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
 
         // we did specify a viewport and scissor state for this pipeline to be dynamic so we must set them in the command buffer before issuing our draw command
         VkViewport viewport{};
@@ -811,7 +822,7 @@ private:
 
         // now we're ready to issue the draw command for the triangle
         // 3rd param is used for instance rendering but we're not doing that so say 1
-        vkCmdDraw(commandBuffer, 3, 1, 0, 0);
+        vkCmdDraw(commandBuffer, static_cast<uint32_t>(vertices.size()), 1, 0, 0);
 
         // now we can end the renderpass
         vkCmdEndRenderPass(commandBuffer);
@@ -819,6 +830,53 @@ private:
         if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
             throw std::runtime_error("failed to record command buffer!");
         }
+    }
+
+    /*
+        This is going to be used to combine our memory requirements of the specific buffer we created + our own applications memory to find the right memory type to use
+        we do this because our graphics card provides us with different memory types to allocate from that will vary depending on allowed operations and performance characteristics
+
+        sole purpose is to find the correct VkMemoryType from our devices available memory types
+        when it's time to actually allocate our vertex information into the GPU we will use the VkMemoryType
+    */
+    uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) {
+        // so now this part specifies the memory requirements that our gpu provides us so we can find which one will satisfy the requirements our vertex buffer requires
+        VkPhysicalDeviceMemoryProperties memProperties;
+        vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
+
+        /*
+            There are two arrays within our physical device memory properties, the heap and the type
+            the heap represents the physical pools of memory the gpu has access to as well 
+
+            the different types of memory exist in those heaps
+            
+            Unlike how primary memory will have a swap space on the secondary memory to load data in and out of primary
+            The gpu utilizes a swap space in RAM when VRAM runs out
+
+            Ayways now we can find a memory type that is suitable with our vertex buffer from our gpu
+        */
+        for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
+            /*
+                type Filter is used to specify the bit field of memory types that are suitable
+                typeFilter will be memoryTypeBits from VkMemoryRequirements in our vertex buffer creation function
+                typeFilter is another bitmask for our bitwise operation where each bit represents a flag or a state
+                we have this bitmask filled by vkGetBufferMemoryRequirements depending on the memory requirements we stated
+                and we just iterate through the device memory properties provided by our gpu moving the 1 over until it's compatible or considered "on" with what the vertex buffer requires + the properties we need
+                we filled our VkMemoryRequirements struct using this function vkGetBufferMemoryRequirements so then we can extract the memoryTypeBits and pass it to this
+
+                the memory types array in our memProperties consist of VkMemoryType structs that specify the heap and properties for each type of memory
+                it has VkMemoryPropertyFlags propertyFlags; to describe properties of that memory type
+                uint32_t heapIndex; and this is the unique identifier  
+
+                so this statement really does 2 things, makes sure the i-th memory type is one that our buffer can actually used (provided by our physical device)         
+                and that the i-th memory type also posses all the properties that I need
+            */
+            if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties) {
+                return i;
+            }
+        }
+
+        throw std::runtime_error("failed to find suitable memory type!");
     }
 
     // Store and initiate each vulkan object
@@ -842,6 +900,8 @@ private:
 
     /*
         Creating a vertex buffer doesn't have it's own vk command so we'll create a general buffer
+
+        the vertex buffer represents the GPUs named access point to that data that you stored with in it
     */
     void createVertexBuffer() {
         VkBufferCreateInfo bufferInfo{};
@@ -860,8 +920,41 @@ private:
             std::runtime_error("failed to create vertex buffer!");
         }
 
-        // the first step of allocating memory for the buffer is to query the memory requirements
-        
+        /*
+            while we've created the buffer itself we haven't allocated any memory into it
+            the first step of allocating memory for the buffer is to query the memory requirements
+            this tells us what kind of memory the buffer needs
+        */
+        VkMemoryRequirements memRequirements;
+        vkGetBufferMemoryRequirements(device, vertexBuffer, &memRequirements); // fills our struct for us
+
+        // now it's time to allocate the vertex information
+        VkMemoryAllocateInfo allocInfo{};
+        allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+        allocInfo.allocationSize = memRequirements.size;
+        // we check if a memory type of a specific type specified by our vertex buffer memory requirements func is available by our gpu
+        // we then check if that memory type has either of these flags available to them so we can write to that specific heap from our cpu
+        allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+        // now we will allocate memory to a specific heap on the gpu, request and reserve a specific block of physical memory on the gpu
+        if (vkAllocateMemory(device, &allocInfo, nullptr, &vertexBufferMemory) != VK_SUCCESS) {
+            std::runtime_error("failed to allocate vertex buffer memory!");
+        }
+
+        // since memory allocation didn't return an error we can now associate this memory with the buffer
+        vkBindBufferMemory(device, vertexBuffer, vertexBufferMemory, 0);
+
+        // now we need to fill our vertex buffer, with a data variable that points to a memory location on our gpu
+        // even though we linked our vertex buffer to a specific chunk of memory on our gpu, we still can't directly write to it yet
+        void* data;
+        // this allows us to access a region of the specified memory resource defined by an offset and size
+        // this creates the bridge between the address spaces of the vetex data and the space on our gpu
+        vkMapMemory(device, vertexBufferMemory, 0, bufferInfo.size, 0, &data);
+        // now we can copy some data into that mapped memory
+        // just transfers the vertices data into the VkDeviceMemory
+        memcpy(data, vertices.data(), (size_t) bufferInfo.size);
+        // then unmap that memory
+        vkUnmapMemory(device, vertexBufferMemory);
     }
 
     /*
@@ -1787,6 +1880,7 @@ private:
         cleanupSwapChain();
 
         vkDestroyBuffer(device, vertexBuffer, nullptr);
+        vkFreeMemory(device, vertexBufferMemory, nullptr);
 
         for (auto semaphore : imageAvailableSemaphores) {
             vkDestroySemaphore(device, semaphore, nullptr);
