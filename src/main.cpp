@@ -275,7 +275,7 @@ private:
     std::vector<VkFence> inFlightFences;
 
     // this is going to be used to handle resizes explicitly 
-    // we'll use this to flag when a resize has happened 
+    // we'll use this to flag when a resize has occured
     bool framebufferResized = false;
 
     // our vectors
