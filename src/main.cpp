@@ -263,6 +263,18 @@ private:
     // this is needed so we can bind our buffer to an actual
     VkDeviceMemory vertexBufferMemory;
 
+    /*
+        So the memory type that we currently have linked to our vertexbuffer on our gpu may not be the most compatible type
+        the memory type that we picked and is compatible with our vertex buffer has either the VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT flag
+        while this allows us the map and memcpy from the cpu into the gpu, it isn't the most optimal location and flag for the gpu to read from (because we pass our vertex buffer that has an index to the heap on gpu)
+        
+        the most optimal memory type has the VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT flag but usually the CPU can't access it on dedicated graphics cards 
+        that's why we're going to write to our staging buffer, move it to the vertex buffer, and read from the vertex buffer so we get the bost of both worlds
+
+        we will need a transfer queue so we can get the buffer copy command from one buffer to another
+    */
+    VkBuffer stagingBuffer;
+
     // EACH FRAME SHOULD HAVE IT'S OWN COMMAND BUFFERS, SEMAPHORES, AND FENCES; SINCE WE ARE GONNA HAVE 2 IN FLIGHT FRAMES AT A TIME
     // our command buffer
     std::vector<VkCommandBuffer> commandBuffers;
@@ -281,9 +293,9 @@ private:
     // our vectors
     const std::vector<Vertex> vertices = {
         // Position     // Color
-        {{0.0f, -0.5f}, {1.0f, 1.0f, 1.0f}},
+        {{1.0f, -1.0f}, {1.0f, 0.0f, 0.0f}},
         {{0.5f, 0.5f},  {0.0f, 1.0f, 0.0f}},
-        {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}
+        {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
     };
 
     // Initialize GLFW and create a window
@@ -949,6 +961,7 @@ private:
         void* data;
         // this allows us to access a region of the specified memory resource defined by an offset and size
         // this creates the bridge between the address spaces of the vetex data and the space on our gpu
+        // it makes a region of the GPU-allocated memory directly accessible to your CPU code
         vkMapMemory(device, vertexBufferMemory, 0, bufferInfo.size, 0, &data);
         // now we can copy some data into that mapped memory
         // just transfers the vertices data into the VkDeviceMemory
@@ -1063,7 +1076,7 @@ private:
         the renderpass is a sequence of rendering operations including the framebuffer attachments that will be used (color, depth, stencil)
         how they'll be loaded and stored, and any synchronization dependencies between subpasses
 
-        THINK OF IT AS A BLUEPRINT FOR THE VULKAN  OF A SEQUENCE OF OPERATIONS AND HOW THEY'LL INTERACT WITH AN IMAGE
+        THINK OF IT AS A BLUEPRINT FOR THE VULKAN OF A SEQUENCE OF OPERATIONS AND HOW THEY'LL INTERACT WITH AN IMAGE
     */
     void createRenderPass() {
         // in our case we'll have just a single color buffer attachment represented by one of the images from the swap chain
