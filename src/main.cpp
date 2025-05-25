@@ -293,7 +293,7 @@ private:
     // our vectors
     const std::vector<Vertex> vertices = {
         // Position     // Color
-        {{1.0f, -1.0f}, {1.0f, 0.0f, 0.0f}},
+        {{0.0f, -0.5f}, {1.0f, 0.0f, 0.0f}},
         {{0.5f, 0.5f},  {0.0f, 1.0f, 0.0f}},
         {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
     };
@@ -891,6 +891,35 @@ private:
         throw std::runtime_error("failed to find suitable memory type!");
     }
 
+    /*
+        Now that we're going to need multiple buffers 
+    */
+    void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags props, VkDeviceMemory& bufferMemory, VkBuffer& buffer) {
+        VkBufferCreateInfo bufferInfo{};
+        bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+        bufferInfo.size = size;
+        bufferInfo.usage = usage;
+        bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+        
+        if (vkCreateBuffer(device, &bufferInfo, nullptr, &buffer) != VK_SUCCESS) {
+            std::runtime_error("failed to create buffer!");
+        }
+
+        VkMemoryRequirements memRequirements;
+        vkGetBufferMemoryRequirements(device, buffer, &memRequirements);
+
+        VkMemoryAllocateInfo allocInfo{};
+        allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+        allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, props);
+        allocInfo.allocationSize = memRequirements.size;
+
+        if (vkAllocateMemory(device, &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS) {
+            std::runtime_error("failed to allocate memory on gpu!");
+        }
+
+        vkBindBufferMemory(device, buffer, bufferMemory, 0);
+    }
+
     // Store and initiate each vulkan object
     void initVulkan() {
         // Is called on it's own to initialize vulkan
@@ -910,51 +939,58 @@ private:
         createSyncObjects();
     }
 
+    // function to create stage buffer
+    void createStageBuffer() {
+        VkDeviceSize size = sizeof(vertices[0]) * vertices.size();
+    }
+
     /*
         Creating a vertex buffer doesn't have it's own vk command so we'll create a general buffer
 
         the vertex buffer represents the GPUs named access point to that data that you stored with in it
     */
     void createVertexBuffer() {
-        VkBufferCreateInfo bufferInfo{};
-        bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-        // we do this so we can get the size of the actual data we own
-        // doing just sizeof(vertices) would be the size of std::vector<Vertex> which is what our vertices variable is
-        bufferInfo.size = sizeof(vertices[0]) * vertices.size();
-        // What kind of buffer is it
-        bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-        // buffers can be owned by a specific queue family or be shared between multiple at the same time
-        // our vertices will only be used by the graphics queue so we'll stick to this
-        bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-        // At this point our buffer is created but it's not actually filled with any memory
-        if (vkCreateBuffer(device, &bufferInfo, nullptr, &vertexBuffer) != VK_SUCCESS) {
-            std::runtime_error("failed to create vertex buffer!");
-        }
-
+        VkDeviceSize size = sizeof(vertices[0]) * vertices.size();
+        createBuffer(size, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, vertexBufferMemory, vertexBuffer);
         /*
-            while we've created the buffer itself we haven't allocated any memory into it
-            the first step of allocating memory for the buffer is to query the memory requirements
-            this tells us what kind of memory the buffer needs
+            bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+            // we do this so we can get the size of the actual data we own
+            // doing just sizeof(vertices) would be the size of std::vector<Vertex> which is what our vertices variable is
+            bufferInfo.size = sizeof(vertices[0]) * vertices.size();
+            // What kind of buffer is it
+            bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+            // buffers can be owned by a specific queue family or be shared between multiple at the same time
+            // our vertices will only be used by the graphics queue so we'll stick to this
+            bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+            // At this point our buffer is created but it's not actually filled with any memory
+            if (vkCreateBuffer(device, &bufferInfo, nullptr, &vertexBuffer) != VK_SUCCESS) {
+                std::runtime_error("failed to create vertex buffer!");
+            }
+
+            // while we've created the buffer itself we haven't allocated any memory into it
+            // the first step of allocating memory for the buffer is to query the memory requirements
+            // this tells us what kind of memory the buffer needs
+            
+            VkMemoryRequirements memRequirements;
+            vkGetBufferMemoryRequirements(device, vertexBuffer, &memRequirements); // fills our struct for us
+
+            // now it's time to allocate the vertex information
+            VkMemoryAllocateInfo allocInfo{};
+            allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+            allocInfo.allocationSize = memRequirements.size;
+            // we check if a memory type of a specific type specified by our vertex buffer memory requirements func is available by our gpu
+            // we then check if that memory type has either of these flags available to them so we can write to that specific heap from our cpu
+            allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+            // now we will allocate memory to a specific heap on the gpu, request and reserve a specific block of physical memory on the gpu
+            if (vkAllocateMemory(device, &allocInfo, nullptr, &vertexBufferMemory) != VK_SUCCESS) {
+                std::runtime_error("failed to allocate vertex buffer memory!");
+            }
+
+            // since memory allocation didn't return an error we can now associate this memory with the buffer
+            vkBindBufferMemory(device, vertexBuffer, vertexBufferMemory, 0);
         */
-        VkMemoryRequirements memRequirements;
-        vkGetBufferMemoryRequirements(device, vertexBuffer, &memRequirements); // fills our struct for us
-
-        // now it's time to allocate the vertex information
-        VkMemoryAllocateInfo allocInfo{};
-        allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-        allocInfo.allocationSize = memRequirements.size;
-        // we check if a memory type of a specific type specified by our vertex buffer memory requirements func is available by our gpu
-        // we then check if that memory type has either of these flags available to them so we can write to that specific heap from our cpu
-        allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-
-        // now we will allocate memory to a specific heap on the gpu, request and reserve a specific block of physical memory on the gpu
-        if (vkAllocateMemory(device, &allocInfo, nullptr, &vertexBufferMemory) != VK_SUCCESS) {
-            std::runtime_error("failed to allocate vertex buffer memory!");
-        }
-
-        // since memory allocation didn't return an error we can now associate this memory with the buffer
-        vkBindBufferMemory(device, vertexBuffer, vertexBufferMemory, 0);
 
         // now we need to fill our vertex buffer, with a data variable that points to a memory location on our gpu
         // even though we linked our vertex buffer to a specific chunk of memory on our gpu, we still can't directly write to it yet
@@ -962,10 +998,10 @@ private:
         // this allows us to access a region of the specified memory resource defined by an offset and size
         // this creates the bridge between the address spaces of the vetex data and the space on our gpu
         // it makes a region of the GPU-allocated memory directly accessible to your CPU code
-        vkMapMemory(device, vertexBufferMemory, 0, bufferInfo.size, 0, &data);
+        vkMapMemory(device, vertexBufferMemory, 0, size, 0, &data);
         // now we can copy some data into that mapped memory
         // just transfers the vertices data into the VkDeviceMemory
-        memcpy(data, vertices.data(), (size_t) bufferInfo.size);
+        memcpy(data, vertices.data(), (size_t) size);
         // then unmap that memory
         vkUnmapMemory(device, vertexBufferMemory);
     }
