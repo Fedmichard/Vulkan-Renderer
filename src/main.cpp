@@ -953,7 +953,7 @@ private:
         VkDeviceSize size = sizeof(vertices[0]) * vertices.size();
         createBuffer(size, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, vertexBufferMemory, vertexBuffer);
         /*
-            bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+            bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO
             // we do this so we can get the size of the actual data we own
             // doing just sizeof(vertices) would be the size of std::vector<Vertex> which is what our vertices variable is
             bufferInfo.size = sizeof(vertices[0]) * vertices.size();
