@@ -840,7 +840,7 @@ private:
         vkCmdEndRenderPass(commandBuffer);
 
         if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
-            throw std::runtime_error("failed to record command buffer!");
+            throw std::runtime_error("failed to end command buffer!");
         }
     }
 
@@ -891,6 +891,37 @@ private:
         throw std::runtime_error("failed to find suitable memory type!");
     }
 
+    // Helper function to copy from one buffer to another buffer
+    void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) {
+        // luckily we don't have to create a new command pool beacuse VK_QUEUE_TRANSFER_BIT is implicitly support with VK_QUEUE_GRAPHICS_BIT
+        VkCommandBufferAllocateInfo allocInfo{};
+        allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+        allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+        allocInfo.commandPool = commandPool;
+        allocInfo.commandBufferCount = 1;
+
+        // our command buffer we'll write commands too
+        VkCommandBuffer commandBuffer;
+        vkAllocateCommandBuffers(device, &allocInfo, &commandBuffer);
+
+        // begin info for command buffer so we can start recording
+        VkCommandBufferBeginInfo beginInfo{};
+        beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+        beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT; // only going to use the command buffer once and wait unitl copy operation is finished executing
+
+        // immediately staart recording to command buffer
+        if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS) {
+            throw std::runtime_error("failed to begin copy command buffer!");
+        }
+
+        // this is a struct specifying a buffer copy operation
+        VkBufferCopy copyRegion{};
+
+        if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
+            throw std::runtime_error("failed to end command buffer!");
+        }
+    }
+
     /*
         Now that we're going to need multiple buffers 
     */
@@ -913,6 +944,7 @@ private:
         allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, props);
         allocInfo.allocationSize = memRequirements.size;
 
+        // this is the exact moment we allocate memory onto the gpu
         if (vkAllocateMemory(device, &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS) {
             std::runtime_error("failed to allocate memory on gpu!");
         }
@@ -939,11 +971,6 @@ private:
         createSyncObjects();
     }
 
-    // function to create stage buffer
-    void createStageBuffer() {
-        VkDeviceSize size = sizeof(vertices[0]) * vertices.size();
-    }
-
     /*
         Creating a vertex buffer doesn't have it's own vk command so we'll create a general buffer
 
@@ -951,7 +978,10 @@ private:
     */
     void createVertexBuffer() {
         VkDeviceSize size = sizeof(vertices[0]) * vertices.size();
-        createBuffer(size, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, vertexBufferMemory, vertexBuffer);
+        // this buffer is going to have a transfer usage, we'll transfer it into the vertex buffer once it's on the gpu and written to
+        VkBuffer stagingBuffer;
+        VkDeviceMemory stagingBufferMemory;
+        createBuffer(size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBufferMemory, stagingBuffer);
         /*
             bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO
             // we do this so we can get the size of the actual data we own
@@ -994,16 +1024,28 @@ private:
 
         // now we need to fill our vertex buffer, with a data variable that points to a memory location on our gpu
         // even though we linked our vertex buffer to a specific chunk of memory on our gpu, we still can't directly write to it yet
+        // represents a host accessible virtual address to memory on our gpu
         void* data;
         // this allows us to access a region of the specified memory resource defined by an offset and size
         // this creates the bridge between the address spaces of the vetex data and the space on our gpu
         // it makes a region of the GPU-allocated memory directly accessible to your CPU code
-        vkMapMemory(device, vertexBufferMemory, 0, size, 0, &data);
+        vkMapMemory(device, stagingBufferMemory, 0, size, 0, &data);
         // now we can copy some data into that mapped memory
         // just transfers the vertices data into the VkDeviceMemory
         memcpy(data, vertices.data(), (size_t) size);
         // then unmap that memory
-        vkUnmapMemory(device, vertexBufferMemory);
+        vkUnmapMemory(device, stagingBufferMemory);
+
+        /*
+            So from the above creation of the staging buffer, we created a staging buffer with a source transfer usage bit flag
+            we find the memory requirements the buffer requires and allocate the memory onto our gpu using our specified usage bit flag and property bit flag
+            then we bind the buffer to that region of memory to be used by our gpu later on
+        */
+
+        // represents our actual vertex buffer that we're going to use VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT because that is the most optimal memory flag bit for the gpu to read from
+        // we're also going to use it as a destination buffer during a transfer
+        // now our vertex buffer has a memory type that is device local
+        createBuffer(size, VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertexBufferMemory, vertexBuffer);
     }
 
     /*
@@ -1075,7 +1117,7 @@ private:
             throw std::runtime_error("failed to create command pool!");
         }
     }
- 
+
     // Now we can create our framebuffers
     // Framebuffer just represents a single instance of a rendering target, in our case it'll be an instance of an image and some of it's information
     // Think of the renderpass as a recipe and the framebuffer as the tools needed to create our recipe (which is our iamge in this case)
