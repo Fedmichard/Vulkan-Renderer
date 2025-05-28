@@ -263,17 +263,9 @@ private:
     // this is needed so we can bind our buffer to an actual
     VkDeviceMemory vertexBufferMemory;
 
-    /*
-        So the memory type that we currently have linked to our vertexbuffer on our gpu may not be the most compatible type
-        the memory type that we picked and is compatible with our vertex buffer has either the VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT flag
-        while this allows us the map and memcpy from the cpu into the gpu, it isn't the most optimal location and flag for the gpu to read from (because we pass our vertex buffer that has an index to the heap on gpu)
-        
-        the most optimal memory type has the VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT flag but usually the CPU can't access it on dedicated graphics cards 
-        that's why we're going to write to our staging buffer, move it to the vertex buffer, and read from the vertex buffer so we get the bost of both worlds
-
-        we will need a transfer queue so we can get the buffer copy command from one buffer to another
-    */
-    VkBuffer stagingBuffer;
+    // we'll create a separate buffer to hold our indices and allocate to the gpu
+    VkBuffer indexBuffer;
+    VkDeviceMemory indexBufferMemory;
 
     // EACH FRAME SHOULD HAVE IT'S OWN COMMAND BUFFERS, SEMAPHORES, AND FENCES; SINCE WE ARE GONNA HAVE 2 IN FLIGHT FRAMES AT A TIME
     // our command buffer
@@ -293,9 +285,17 @@ private:
     // our vectors
     const std::vector<Vertex> vertices = {
         // Position     // Color
-        {{0.0f, -0.5f}, {1.0f, 0.0f, 0.0f}},
-        {{0.5f, 0.5f},  {0.0f, 1.0f, 0.0f}},
-        {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
+        {{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
+        {{0.5f, -0.5f},  {0.0f, 1.0f, 0.0f}},
+        {{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
+        {{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}}
+    };
+
+    // essentially an array of pointers to our vertex buffer
+    // each index will represent a pointer to a vertex
+    const std::vector<uint32_t> indices = {
+        0, 1, 2,
+        2, 3, 0
     };
 
     // Initialize GLFW and create a window
@@ -591,7 +591,7 @@ private:
         for (const auto& availableFormat : availableFormats) {
             // Go through all of our available fromats
             // If both of these options are available from our available formats return that available format
-            if (availableFormat.format == VK_FORMAT_B8G8R8A8_SRGB && availableFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
+            if (availableFormat.format == VK_FORMAT_R8G8B8A8_SRGB && availableFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
                 /*
                     VK_FORMAT_B8G8R8A8_SRGB means we store BGRA in that order as 8 bits each for a total of 32 bits per pixel
                     Each pixel in our swapchain images will be stored as 32 bits in that order in memory
@@ -807,34 +807,38 @@ private:
         // VK_SUBPASS_CONTENTS_INLINE means the render pass commands will be embedded in the primary command buffer and no secondary cmd buffers will be executed
         vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE); // once again we're not using secondary command buffers
 
-        // now bind the graphics pipeline
-        // second option decides if the pipeline object is a graphics or a compute pipeline (we created a graphics pipeline)
-        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
+            // now bind the graphics pipeline
+            // second option decides if the pipeline object is a graphics or a compute pipeline (we created a graphics pipeline)
+            vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 
-        // now we telling vulkan to bind these vertex buffers to the pipeline essentially
-        // since our pipeline is already expecting data from a vertex buffer, when your passing cmds to gpu it'll know to read data from the buffer identified by vertexBuffer
-        VkBuffer vertexBuffers[] = { vertexBuffer };
-        VkDeviceSize offsets[] = { 0 };
-        vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+            // now we telling vulkan to bind these vertex buffers to the pipeline essentially
+            // since our pipeline is already expecting data from a vertex buffer, when your passing cmds to gpu it'll know to read data from the buffer identified by vertexBuffer
+            VkBuffer vertexBuffers[] = { vertexBuffer };
+            VkDeviceSize offsets[] = { 0 };
+            vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
 
-        // we did specify a viewport and scissor state for this pipeline to be dynamic so we must set them in the command buffer before issuing our draw command
-        VkViewport viewport{};
-        viewport.x = 0.0f;
-        viewport.y = 0.0f;
-        viewport.width = static_cast<float>(swapChainExtent.width);
-        viewport.height = static_cast<float>(swapChainExtent.height);
-        viewport.minDepth = 0.0f;
-        viewport.maxDepth = 1.0f;
-        vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+            vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
-        VkRect2D scissor{};
-        scissor.offset = { 0, 0 };
-        scissor.extent = swapChainExtent;
-        vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+            // we did specify a viewport and scissor state for this pipeline to be dynamic so we must set them in the command buffer before issuing our draw command
+            VkViewport viewport{};
+            viewport.x = 0.0f;
+            viewport.y = 0.0f;
+            viewport.width = static_cast<float>(swapChainExtent.width);
+            viewport.height = static_cast<float>(swapChainExtent.height);
+            viewport.minDepth = 0.0f;
+            viewport.maxDepth = 1.0f;
+            vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
 
-        // now we're ready to issue the draw command for the triangle
-        // 3rd param is used for instance rendering but we're not doing that so say 1
-        vkCmdDraw(commandBuffer, static_cast<uint32_t>(vertices.size()), 1, 0, 0);
+            VkRect2D scissor{};
+            scissor.offset = { 0, 0 };
+            scissor.extent = swapChainExtent;
+            vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+
+            // will use this to draw from index buffer
+            vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
+            // now we're ready to issue the draw command for the triangle
+            // 3rd param is used for instance rendering but we're not doing that so say 1
+            // vkCmdDraw(commandBuffer, static_cast<uint32_t>(vertices.size()), 1, 0, 0); -- originally used to draw from vertex buffer
 
         // now we can end the renderpass
         vkCmdEndRenderPass(commandBuffer);
@@ -915,11 +919,33 @@ private:
         }
 
         // this is a struct specifying a buffer copy operation
+        // info for our copy command function
         VkBufferCopy copyRegion{};
+        copyRegion.srcOffset = 0;
+        copyRegion.dstOffset = 0;
+        copyRegion.size = size;
+        // actual copying command
+        // contents of srcBuffer are transferred to dstBuffer and an array of regions to copy
+        vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
 
         if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
-            throw std::runtime_error("failed to end command buffer!");
+            throw std::runtime_error("failed to end copy command buffer!");
         }
+
+        VkSubmitInfo submitInfo{};
+        submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+        submitInfo.commandBufferCount = 1;
+        submitInfo.pCommandBuffers = &commandBuffer;
+
+        // no we're going to submit our commands to the graphics family
+        if (vkQueueSubmit(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS) {
+            throw std::runtime_error("failed to submit to transfer queue!");
+        }
+        // we're going to wait for the transfer queue to become idle before submitting to it
+        // we're opting for immediate execution with this command and if we wanted to do multiple transfers simultaneously then we could use a fence
+        vkQueueWaitIdle(graphicsQueue);
+
+        vkFreeCommandBuffers(device, commandPool, 1,&commandBuffer);
     }
 
     /*
@@ -967,14 +993,83 @@ private:
         createFrameBuffers();
         createCommandPool();
         createVertexBuffer();
+        createIndexBuffer();
         createCommandBuffers();
         createSyncObjects();
     }
 
-    /*
-        Creating a vertex buffer doesn't have it's own vk command so we'll create a general buffer
+    void createIndexBuffer() {
+        VkDeviceSize size = sizeof(indices[0]) * indices.size();
 
-        the vertex buffer represents the GPUs named access point to that data that you stored with in it
+        // staging buffer
+        VkBuffer stagingBuffer;
+        VkDeviceMemory stagingBufferMemory;
+
+        VkBufferCreateInfo stageInfo{};
+        stageInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+        stageInfo.size = size;
+        stageInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+        stageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+        vkCreateBuffer(device, &stageInfo, nullptr, &stagingBuffer);
+
+        VkMemoryRequirements stageRequirements{};
+        vkGetBufferMemoryRequirements(device, stagingBuffer, &stageRequirements);
+
+        VkMemoryAllocateInfo stageAlloc{};
+        stageAlloc.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+        stageAlloc.allocationSize = size;
+        stageAlloc.memoryTypeIndex = findMemoryType(stageRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+        vkAllocateMemory(device, &stageAlloc, nullptr, &stagingBufferMemory);
+
+        vkBindBufferMemory(device, stagingBuffer, stagingBufferMemory, 0);
+
+        void* data;
+        vkMapMemory(device, stagingBufferMemory, 0, size, 0, &data);
+        memcpy(data, indices.data(), (size_t) size);
+        vkUnmapMemory(device, stagingBufferMemory);
+
+        // index buffer
+        VkBufferCreateInfo createInfo{};
+        createInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+        createInfo.size = size;
+        createInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+        createInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+        if (vkCreateBuffer(device, &createInfo, nullptr, &indexBuffer) != VK_SUCCESS) {
+            throw std::runtime_error("failed to create index buffer!");
+        }
+
+        VkMemoryRequirements memRequirements{};
+        vkGetBufferMemoryRequirements(device, indexBuffer, &memRequirements);
+
+        VkMemoryAllocateInfo allocInfo{};
+        allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+        allocInfo.allocationSize = size;
+        allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+        if (vkAllocateMemory(device, &allocInfo, nullptr, &indexBufferMemory) != VK_SUCCESS) {
+            throw std::runtime_error("failed to allocate index buffer memory!");
+        }
+
+        vkBindBufferMemory(device, indexBuffer, indexBufferMemory, 0);
+
+        copyBuffer(stagingBuffer, indexBuffer, size);
+
+        vkDestroyBuffer(device, stagingBuffer, nullptr);
+        vkFreeMemory(device, stagingBufferMemory, nullptr);
+    }
+
+    /*
+        So the memory type that we currently have linked to our vertexbuffer on our gpu may not be the most compatible type
+        the memory type that we picked and is compatible with our vertex buffer has either the VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT flag
+        while this allows us the map and memcpy from the cpu into the gpu, it isn't the most optimal location and flag for the gpu to read from (because we pass our vertex buffer that has an index to the heap on gpu)
+        
+        the most optimal memory type has the VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT flag but usually the CPU can't access it on dedicated graphics cards 
+        that's why we're going to write to our staging buffer, move it to the vertex buffer, and read from the vertex buffer so we get the bost of both worlds
+
+        we will need a transfer queue so we can get the buffer copy command from one buffer to another
     */
     void createVertexBuffer() {
         VkDeviceSize size = sizeof(vertices[0]) * vertices.size();
@@ -1045,7 +1140,12 @@ private:
         // represents our actual vertex buffer that we're going to use VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT because that is the most optimal memory flag bit for the gpu to read from
         // we're also going to use it as a destination buffer during a transfer
         // now our vertex buffer has a memory type that is device local
-        createBuffer(size, VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertexBufferMemory, vertexBuffer);
+        createBuffer(size, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertexBufferMemory, vertexBuffer);
+
+        copyBuffer(stagingBuffer, vertexBuffer, size);
+
+        vkDestroyBuffer(device, stagingBuffer, nullptr);
+        vkFreeMemory(device, stagingBufferMemory, nullptr);
     }
 
     /*
@@ -1969,6 +2069,9 @@ private:
     // It is possible to perform automatic resource management using RAII or smart pointers
     void cleanup() {
         cleanupSwapChain();
+
+        vkDestroyBuffer(device, indexBuffer, nullptr);
+        vkFreeMemory(device, indexBufferMemory, nullptr);
 
         vkDestroyBuffer(device, vertexBuffer, nullptr);
         vkFreeMemory(device, vertexBufferMemory, nullptr);
