@@ -204,6 +204,13 @@ struct Vertex {
     }
 };
 
+// uniform buffer object for our camera since we're going into 3D now
+struct UniformBufferObject {
+    glm::mat4 model;
+    glm::mat4 view;
+    glm::mat4 proj;
+};
+
 class HelloTriangleApplication{
 private:
     // GLFW window instance
@@ -245,9 +252,12 @@ private:
     // our renderpass
     VkRenderPass renderPass;
 
-    // We must create a pipeline layout even though we won't be using it right now, we'll just leave it empty
+    // our descriptor set layout
+    VkDescriptorSetLayout descriptorSetLayout;
+
     // We can pass uniform values in shaders, which are global values that can be accessed and changed at drawtime through our entire pipeline without the need for recompiling
-    // They are most common for passing transformation matrix to the vertex shader or to create texture samplers
+    // a component of the pipeline that defines the communication between your shaders and external global resources (buffers, textures, etc.)
+    // it specifies which VkDescriptorSetLayout's the pipeline will use and in what order as well as any push constants
     VkPipelineLayout pipelineLayout;
 
     // our pipeline
@@ -266,6 +276,10 @@ private:
     // we'll create a separate buffer to hold our indices and allocate to the gpu
     VkBuffer indexBuffer;
     VkDeviceMemory indexBufferMemory;
+
+    std::vector<VkBuffer> uniformBuffers;
+    std::vector<VkDeviceMemory> uniformBuffersMemory;
+    std::vector<void*> uniformBuffersMapped;
 
     // EACH FRAME SHOULD HAVE IT'S OWN COMMAND BUFFERS, SEMAPHORES, AND FENCES; SINCE WE ARE GONNA HAVE 2 IN FLIGHT FRAMES AT A TIME
     // our command buffer
@@ -805,6 +819,7 @@ private:
         // now we can begin our render pass. This is essentially saying that when the command buffer executes start a renderpass with some specific expected settings
         // this is the blueprint for a rendering sequence. since our blueprint expects color attachments this will relate to our draw commands
         // VK_SUBPASS_CONTENTS_INLINE means the render pass commands will be embedded in the primary command buffer and no secondary cmd buffers will be executed
+        // essentially set up for the canvas, it defines where the drawing operations will output results and how
         vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE); // once again we're not using secondary command buffers
 
             // now bind the graphics pipeline
@@ -835,6 +850,7 @@ private:
             vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
             // will use this to draw from index buffer
+            // while this is the exact draw command, you're essentially telling the gpu for this draw command use the exact configuration for every stage of the rendering process from the pipeline once binded
             vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
             // now we're ready to issue the draw command for the triangle
             // 3rd param is used for instance rendering but we're not doing that so say 1
@@ -989,13 +1005,57 @@ private:
         createSwapChain();
         createImageViews();
         createRenderPass();
+        createDescriptorSetLayout();
         createGraphicsPipeline();
         createFrameBuffers();
         createCommandPool();
         createVertexBuffer();
         createIndexBuffer();
+        createUniformBuffers();
         createCommandBuffers();
         createSyncObjects();
+    }
+
+    void createUniformBuffers() {
+        VkDeviceSize size = sizeof(UniformBufferObject);
+
+        // because uniform buffers are only changed per frame
+        uniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+        uniformBuffersMemory.resize(MAX_FRAMES_IN_FLIGHT);
+        uniformBuffersMapped.resize(MAX_FRAMES_IN_FLIGHT);
+
+        for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+            
+        }
+    }
+
+    /*
+        Uniform value: a value that's going to remain constant through the rendering process and graphics pipeline from one draw call
+        Uniform Buffer: a buffer on the gpu that stores all of our uniform values for our pipeline (one of our resources)
+        Descriptor: a pointer to a specific resource that can be accessed by shaders
+        Descriptor set: a set of these pointers to different resources 
+        Descriptor set layout: a blueprint, like a renderpass, of the types of resources going to be accessed by the pipeline
+    */
+    void createDescriptorSetLayout() {
+        // every binding needs to be described
+        VkDescriptorSetLayoutBinding uboLayoutBinding{};
+        // our uniform buffer object resource is going to be binding to index 0
+        uboLayoutBinding.binding = 0;
+        uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        uboLayoutBinding.descriptorCount = 1;
+        // specifies which shader stages the descriptor is going to be referenced in
+        // we're only referencing this descriptor 
+        // we're going to get this uniform buffer object from binding 0 of our descriptor set
+        uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+
+        VkDescriptorSetLayoutCreateInfo createInfo{};
+        createInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+        createInfo.bindingCount = 1;
+        createInfo.pBindings = &uboLayoutBinding;
+
+        if (vkCreateDescriptorSetLayout(device, &createInfo, nullptr, &descriptorSetLayout) != VK_SUCCESS) {
+            throw std::runtime_error("failed to create descriptor set layout!");
+        }
     }
 
     void createIndexBuffer() {
@@ -1564,8 +1624,10 @@ private:
 
         VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
         pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-        pipelineLayoutInfo.setLayoutCount = 0;
-        pipelineLayoutInfo.pSetLayouts = nullptr;
+        // specify how many descriptor set layouts we'll have and a reference to it
+        pipelineLayoutInfo.setLayoutCount = 1;
+        // remember our descriptor set layout specifies a set of multiple 
+        pipelineLayoutInfo.pSetLayouts = &descriptorSetLayout;
         pipelineLayoutInfo.pushConstantRangeCount = 0;
         pipelineLayoutInfo.pPushConstantRanges = nullptr;
 
@@ -2069,6 +2131,8 @@ private:
     // It is possible to perform automatic resource management using RAII or smart pointers
     void cleanup() {
         cleanupSwapChain();
+
+        vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
 
         vkDestroyBuffer(device, indexBuffer, nullptr);
         vkFreeMemory(device, indexBufferMemory, nullptr);
