@@ -994,6 +994,10 @@ private:
         vkBindBufferMemory(device, buffer, bufferMemory, 0);
     }
 
+    void updateUniformBuffer(uint32_t currentImage) {
+
+    }
+
     // Store and initiate each vulkan object
     void initVulkan() {
         // Is called on it's own to initialize vulkan
@@ -1025,7 +1029,11 @@ private:
         uniformBuffersMapped.resize(MAX_FRAMES_IN_FLIGHT);
 
         for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-            
+            createBuffer(size, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformBuffersMemory[i], uniformBuffers[i]);
+
+            // this will make a pointer to a memory region on the gpu 
+            // we'll write some data to this pointer later
+            vkMapMemory(device, uniformBuffersMemory[i], 0, size, 0, &uniformBuffersMapped[i]);
         }
     }
 
@@ -2014,10 +2022,19 @@ private:
         by design there is a slight error, the fence starts in the unsignaled state at the first frame waiting for a previous frame (that doesn't exist) to finish executing
         this causes our program to be stuck
         We set our semaphore to the signaled state in the first frame to work around this
+
+        Here's exactly how the fence works:
+            Our 0th fence is manually set into the signaled state at the beginning of our application
+            Meaning that it's good to continue submitting commands, it'll try to acquire the next image in the swap chain and set that fence to unsignaled
+            it'll update uniform values in buffer, then record to one of the command buffers
+            you'll then submit to a queue and move onto 1st frame
+            the 1st frame will go through the same process
+            once the cpu hits the 0th frame again, if the process wasn't finished it'll still be unsignaled prompting the cpu thread to remain in idle
     */
     void drawFrame() {
         // At the start of the frame we wait until the previous frame has finished so command buffer and semaphores are available to use
         // timeout disabled
+        // essentially blocks cpu-side operation until the gpu signals it has completed its operations
         vkWaitForFences(device, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
         // now we will acquire an image from our swap chain to render to
         uint32_t imageIndex;
@@ -2047,6 +2064,9 @@ private:
             only reset if we an image is acquired for submission
         */
         vkResetFences(device, 1, &inFlightFences[currentFrame]);
+
+        // update uniform buffer before submitting next frame
+        updateUniformBuffer(currentFrame);
 
         // reset command buffer so we can use for recording to
         vkResetCommandBuffer(commandBuffers[currentFrame], 0);
@@ -2131,6 +2151,11 @@ private:
     // It is possible to perform automatic resource management using RAII or smart pointers
     void cleanup() {
         cleanupSwapChain();
+
+        for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+            vkDestroyBuffer(device, uniformBuffers[i], nullptr);
+            vkFreeMemory(device, uniformBuffersMemory[i], nullptr);
+        }
 
         vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
 
