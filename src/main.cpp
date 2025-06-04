@@ -18,9 +18,12 @@ Implement picking.
 */
 // #define VK_USE_PLATFORM_WIN32_KHR
 #define GLFW_INCLUDE_VULKAN
+#define GLM_FORCE_RADIANS
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp> // for model transformations, view transformations, and projection transformations
 
+#include <chrono> // for precise timekeeping, using it to ensure geometry rotates 90 degrees per sec regardless of framerate
 #include <iostream>
 #include <fstream>
 #include <optional>
@@ -995,7 +998,10 @@ private:
     }
 
     void updateUniformBuffer(uint32_t currentImage) {
-
+        // some logic to keep track, in seconds, since rendering has started
+        static auto startTime = std::chrono::high_resolution_clock::now();
+        auto currentTime = std::chrono::high_resolution_clock::now();
+        float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
     }
 
     // Store and initiate each vulkan object
