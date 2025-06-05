@@ -257,6 +257,10 @@ private:
 
     // our descriptor set layout
     VkDescriptorSetLayout descriptorSetLayout;
+    // our descriptor pool
+    VkDescriptorPool descriptorPool;
+    // our descriptor sets
+    std::vector<VkDescriptorSet> descriptorSets;
 
     // We can pass uniform values in shaders, which are global values that can be accessed and changed at drawtime through our entire pipeline without the need for recompiling
     // a component of the pipeline that defines the communication between your shaders and external global resources (buffers, textures, etc.)
@@ -997,11 +1001,24 @@ private:
         vkBindBufferMemory(device, buffer, bufferMemory, 0);
     }
 
+    // applying the transformation every second
     void updateUniformBuffer(uint32_t currentImage) {
         // some logic to keep track, in seconds, since rendering has started
         static auto startTime = std::chrono::high_resolution_clock::now();
         auto currentTime = std::chrono::high_resolution_clock::now();
         float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+
+        UniformBufferObject ubo{};
+        // takes an existing transformation, rotation angle, and rotation axis
+        ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+        // takes the position of the eye, center position, and up axis
+        ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+        // use a perspective projection with a 45 degree fov, aspect ratio, and the near/far view planes
+        ubo.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float) swapChainExtent.height, 0.1f, 10.0f);
+        // GLM was originally designed for opengl where the y coordinate of the clip is inverted, so we will invert it
+        ubo.proj[1][1] *= -1;
+
+        memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
     }
 
     // Store and initiate each vulkan object
@@ -1022,10 +1039,43 @@ private:
         createVertexBuffer();
         createIndexBuffer();
         createUniformBuffers();
+        createDescriptorPool();
+        createDescriptorSets();
         createCommandBuffers();
         createSyncObjects();
     }
 
+    void createDescriptorSets() {
+        
+    }
+
+    /*
+        We can't just create a descriptor set we must create a descriptor pool first to allocate the memory required
+    */
+    void createDescriptorPool() {
+        VkDescriptorPoolSize poolSize{};
+        poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        // max number of descriptors that are available
+        poolSize.descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+
+        VkDescriptorPoolCreateInfo createInfo{};
+        createInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+        createInfo.poolSizeCount = 1;
+        createInfo.pPoolSizes = &poolSize;
+        // maximum amount of descriptor sets that can be allocated
+        createInfo.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+
+        if (vkCreateDescriptorPool(device, &createInfo, nullptr, &descriptorPool) != VK_SUCCESS) {
+            throw std::runtime_error("failed to create descriptor pool!");
+        }
+    }
+
+    /*
+        From what I understand the reason why we have 2 different UBOs because we're preparing 2 different frames per time it takes the GPU to execute 1
+        Each UBO will have the specific updated values for that current frame
+
+        This prevents 
+    */
     void createUniformBuffers() {
         VkDeviceSize size = sizeof(UniformBufferObject);
 
