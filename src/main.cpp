@@ -1046,7 +1046,7 @@ private:
     }
 
     void createDescriptorSets() {
-        
+        std::vector<VkDescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, descriptorSetLayout);
     }
 
     /*
