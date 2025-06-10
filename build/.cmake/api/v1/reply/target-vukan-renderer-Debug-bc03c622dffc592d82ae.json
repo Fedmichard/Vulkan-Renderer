@@ -30,13 +30,7 @@
 			{
 				"command" : 0,
 				"file" : 0,
-				"line" : 16,
-				"parent" : 0
-			},
-			{
-				"command" : 1,
-				"file" : 0,
-				"line" : 13,
+				"line" : 17,
 				"parent" : 0
 			},
 			{
@@ -46,9 +40,9 @@
 				"parent" : 0
 			},
 			{
-				"command" : 2,
+				"command" : 1,
 				"file" : 0,
-				"line" : 18,
+				"line" : 15,
 				"parent" : 0
 			},
 			{
@@ -76,6 +70,12 @@
 				"parent" : 0
 			},
 			{
+				"command" : 2,
+				"file" : 0,
+				"line" : 23,
+				"parent" : 0
+			},
+			{
 				"command" : 3,
 				"file" : 0,
 				"line" : 6,
@@ -84,13 +84,13 @@
 			{
 				"command" : 3,
 				"file" : 0,
-				"line" : 8,
+				"line" : 7,
 				"parent" : 0
 			},
 			{
 				"command" : 3,
 				"file" : 0,
-				"line" : 9,
+				"line" : 8,
 				"parent" : 0
 			},
 			{
@@ -103,6 +103,12 @@
 				"command" : 3,
 				"file" : 0,
 				"line" : 11,
+				"parent" : 0
+			},
+			{
+				"command" : 3,
+				"file" : 0,
+				"line" : 12,
 				"parent" : 0
 			}
 		]
@@ -124,18 +130,22 @@
 				},
 				{
 					"backtrace" : 10,
-					"path" : "C:/Users/franc/Documents/Personal_Projects/Vulkan-Renderer/libraries/glm"
-				},
-				{
-					"backtrace" : 11,
-					"path" : "C:/Users/franc/Documents/Personal_Projects/Vulkan-Renderer/libraries/GLFW/include"
-				},
-				{
-					"backtrace" : 12,
 					"path" : "C:/Users/franc/Documents/Personal_Projects/Vulkan-Renderer/shaders"
 				},
 				{
+					"backtrace" : 11,
+					"path" : "C:/Users/franc/Documents/Personal_Projects/Vulkan-Renderer/textures"
+				},
+				{
+					"backtrace" : 12,
+					"path" : "C:/Users/franc/Documents/Personal_Projects/Vulkan-Renderer/libraries/glm"
+				},
+				{
 					"backtrace" : 13,
+					"path" : "C:/Users/franc/Documents/Personal_Projects/Vulkan-Renderer/libraries/GLFW/include"
+				},
+				{
+					"backtrace" : 14,
 					"path" : "C:/VulkanSDK/1.4.309.0/Include"
 				}
 			],

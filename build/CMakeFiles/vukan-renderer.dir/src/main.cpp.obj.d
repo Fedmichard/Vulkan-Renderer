@@ -1,54 +1,44 @@
 CMakeFiles/vukan-renderer.dir/src/main.cpp.obj: \
  C:\Users\franc\Documents\Personal_Projects\Vulkan-Renderer\src\main.cpp \
- C:/Users/franc/Documents/Personal_Projects/Vulkan-Renderer/libraries/GLFW/include/GLFW/glfw3.h \
- C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/14.1.0/include/stddef.h \
- C:/msys64/mingw64/include/stddef.h C:/msys64/mingw64/include/crtdefs.h \
+ C:/Users/franc/Documents/Personal_Projects/Vulkan-Renderer/includes/stb_image.h \
+ C:/msys64/mingw64/include/stdio.h \
+ C:/msys64/mingw64/include/corecrt_stdio_config.h \
  C:/msys64/mingw64/include/corecrt.h C:/msys64/mingw64/include/_mingw.h \
  C:/msys64/mingw64/include/_mingw_mac.h \
  C:/msys64/mingw64/include/_mingw_secapi.h \
  C:/msys64/mingw64/include/vadefs.h \
  C:/msys64/mingw64/include/sdks/_mingw_ddk.h \
- C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/14.1.0/include/stdint.h \
- C:/msys64/mingw64/include/stdint.h \
- C:/VulkanSDK/1.4.309.0/Include/vulkan/vulkan.h \
- C:/VulkanSDK/1.4.309.0/Include/vulkan/vk_platform.h \
- C:/VulkanSDK/1.4.309.0/Include/vulkan/vulkan_core.h \
- C:/VulkanSDK/1.4.309.0/Include/vk_video/vulkan_video_codec_h264std.h \
- C:/VulkanSDK/1.4.309.0/Include/vk_video/vulkan_video_codecs_common.h \
- C:/VulkanSDK/1.4.309.0/Include/vk_video/vulkan_video_codec_h264std_encode.h \
- C:/VulkanSDK/1.4.309.0/Include/vk_video/vulkan_video_codec_h264std.h \
- C:/VulkanSDK/1.4.309.0/Include/vk_video/vulkan_video_codec_h265std.h \
- C:/VulkanSDK/1.4.309.0/Include/vk_video/vulkan_video_codec_h265std_encode.h \
- C:/VulkanSDK/1.4.309.0/Include/vk_video/vulkan_video_codec_h265std.h \
- C:/VulkanSDK/1.4.309.0/Include/vk_video/vulkan_video_codec_h264std_decode.h \
- C:/VulkanSDK/1.4.309.0/Include/vk_video/vulkan_video_codec_h265std_decode.h \
- C:/VulkanSDK/1.4.309.0/Include/vk_video/vulkan_video_codec_av1std.h \
- C:/VulkanSDK/1.4.309.0/Include/vk_video/vulkan_video_codec_av1std_decode.h \
- C:/VulkanSDK/1.4.309.0/Include/vk_video/vulkan_video_codec_av1std.h \
- C:/VulkanSDK/1.4.309.0/Include/vk_video/vulkan_video_codec_av1std_encode.h \
- C:/msys64/mingw64/include/GL/gl.h \
- C:/VulkanSDK/1.4.309.0/Include/glm/glm.hpp \
- C:/VulkanSDK/1.4.309.0/Include/glm/detail/_fixes.hpp \
- C:/msys64/mingw64/include/c++/14.1.0/cmath \
- C:/msys64/mingw64/include/c++/14.1.0/bits/requires_hosted.h \
+ C:/msys64/mingw64/include/_mingw_off_t.h \
+ C:/msys64/mingw64/include/swprintf.inl \
+ C:/msys64/mingw64/include/sec_api/stdio_s.h \
+ C:/msys64/mingw64/include/c++/14.1.0/stdlib.h \
+ C:/msys64/mingw64/include/c++/14.1.0/cstdlib \
  C:/msys64/mingw64/include/c++/14.1.0/x86_64-w64-mingw32/bits/c++config.h \
  C:/msys64/mingw64/include/c++/14.1.0/x86_64-w64-mingw32/bits/os_defines.h \
  C:/msys64/mingw64/include/c++/14.1.0/x86_64-w64-mingw32/bits/cpu_defines.h \
  C:/msys64/mingw64/include/c++/14.1.0/pstl/pstl_config.h \
- C:/msys64/mingw64/include/c++/14.1.0/bits/cpp_type_traits.h \
- C:/msys64/mingw64/include/c++/14.1.0/ext/type_traits.h \
- C:/msys64/mingw64/include/math.h \
- C:/msys64/mingw64/include/c++/14.1.0/bits/std_abs.h \
  C:/msys64/mingw64/include/stdlib.h \
  C:/msys64/mingw64/include/corecrt_wstdlib.h \
  C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/14.1.0/include/limits.h \
  C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/14.1.0/include/syslimits.h \
- C:/msys64/mingw64/include/limits.h \
+ C:/msys64/mingw64/include/limits.h C:/msys64/mingw64/include/crtdefs.h \
  C:/msys64/mingw64/include/sec_api/stdlib_s.h \
- C:/msys64/mingw64/include/c++/14.1.0/stdlib.h \
  C:/msys64/mingw64/include/malloc.h \
  C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/14.1.0/include/mm_malloc.h \
  C:/msys64/mingw64/include/errno.h \
+ C:/msys64/mingw64/include/c++/14.1.0/bits/std_abs.h \
+ C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/14.1.0/include/stdarg.h \
+ C:/msys64/mingw64/include/stdarg.h \
+ C:/msys64/mingw64/include/_mingw_stdarg.h \
+ C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/14.1.0/include/stddef.h \
+ C:/msys64/mingw64/include/stddef.h C:/msys64/mingw64/include/string.h \
+ C:/msys64/mingw64/include/sec_api/string_s.h \
+ C:/msys64/mingw64/include/c++/14.1.0/math.h \
+ C:/msys64/mingw64/include/c++/14.1.0/cmath \
+ C:/msys64/mingw64/include/c++/14.1.0/bits/requires_hosted.h \
+ C:/msys64/mingw64/include/c++/14.1.0/bits/cpp_type_traits.h \
+ C:/msys64/mingw64/include/c++/14.1.0/ext/type_traits.h \
+ C:/msys64/mingw64/include/math.h \
  C:/msys64/mingw64/include/c++/14.1.0/bits/version.h \
  C:/msys64/mingw64/include/c++/14.1.0/bits/specfun.h \
  C:/msys64/mingw64/include/c++/14.1.0/bits/stl_algobase.h \
@@ -82,10 +72,34 @@ CMakeFiles/vukan-renderer.dir/src/main.cpp.obj: \
  C:/msys64/mingw64/include/c++/14.1.0/tr1/poly_hermite.tcc \
  C:/msys64/mingw64/include/c++/14.1.0/tr1/poly_laguerre.tcc \
  C:/msys64/mingw64/include/c++/14.1.0/tr1/riemann_zeta.tcc \
+ C:/msys64/mingw64/include/assert.h \
+ C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/14.1.0/include/stdint.h \
+ C:/msys64/mingw64/include/stdint.h \
+ C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/14.1.0/include/emmintrin.h \
+ C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/14.1.0/include/xmmintrin.h \
+ C:/msys64/mingw64/lib/gcc/x86_64-w64-mingw32/14.1.0/include/mmintrin.h \
+ C:/Users/franc/Documents/Personal_Projects/Vulkan-Renderer/libraries/GLFW/include/GLFW/glfw3.h \
+ C:/VulkanSDK/1.4.309.0/Include/vulkan/vulkan.h \
+ C:/VulkanSDK/1.4.309.0/Include/vulkan/vk_platform.h \
+ C:/VulkanSDK/1.4.309.0/Include/vulkan/vulkan_core.h \
+ C:/VulkanSDK/1.4.309.0/Include/vk_video/vulkan_video_codec_h264std.h \
+ C:/VulkanSDK/1.4.309.0/Include/vk_video/vulkan_video_codecs_common.h \
+ C:/VulkanSDK/1.4.309.0/Include/vk_video/vulkan_video_codec_h264std_encode.h \
+ C:/VulkanSDK/1.4.309.0/Include/vk_video/vulkan_video_codec_h264std.h \
+ C:/VulkanSDK/1.4.309.0/Include/vk_video/vulkan_video_codec_h265std.h \
+ C:/VulkanSDK/1.4.309.0/Include/vk_video/vulkan_video_codec_h265std_encode.h \
+ C:/VulkanSDK/1.4.309.0/Include/vk_video/vulkan_video_codec_h265std.h \
+ C:/VulkanSDK/1.4.309.0/Include/vk_video/vulkan_video_codec_h264std_decode.h \
+ C:/VulkanSDK/1.4.309.0/Include/vk_video/vulkan_video_codec_h265std_decode.h \
+ C:/VulkanSDK/1.4.309.0/Include/vk_video/vulkan_video_codec_av1std.h \
+ C:/VulkanSDK/1.4.309.0/Include/vk_video/vulkan_video_codec_av1std_decode.h \
+ C:/VulkanSDK/1.4.309.0/Include/vk_video/vulkan_video_codec_av1std.h \
+ C:/VulkanSDK/1.4.309.0/Include/vk_video/vulkan_video_codec_av1std_encode.h \
+ C:/msys64/mingw64/include/GL/gl.h \
+ C:/VulkanSDK/1.4.309.0/Include/glm/glm.hpp \
+ C:/VulkanSDK/1.4.309.0/Include/glm/detail/_fixes.hpp \
  C:/VulkanSDK/1.4.309.0/Include/glm/detail/setup.hpp \
  C:/msys64/mingw64/include/c++/14.1.0/cassert \
- C:/msys64/mingw64/include/assert.h \
- C:/msys64/mingw64/include/c++/14.1.0/cstdlib \
  C:/msys64/mingw64/include/c++/14.1.0/cstddef \
  C:/VulkanSDK/1.4.309.0/Include/glm/simd/platform.h \
  C:/msys64/mingw64/include/c++/14.1.0/cstdint \
@@ -224,6 +238,27 @@ CMakeFiles/vukan-renderer.dir/src/main.cpp.obj: \
  C:/VulkanSDK/1.4.309.0/Include/glm/detail/type_half.inl \
  C:/VulkanSDK/1.4.309.0/Include/glm/integer.hpp \
  C:/VulkanSDK/1.4.309.0/Include/glm/detail/func_integer.inl \
+ C:/VulkanSDK/1.4.309.0/Include/glm/gtc/matrix_transform.hpp \
+ C:/VulkanSDK/1.4.309.0/Include/glm/ext/matrix_projection.hpp \
+ C:/VulkanSDK/1.4.309.0/Include/glm/gtc/constants.hpp \
+ C:/VulkanSDK/1.4.309.0/Include/glm/ext/scalar_constants.hpp \
+ C:/VulkanSDK/1.4.309.0/Include/glm/ext/scalar_constants.inl \
+ C:/VulkanSDK/1.4.309.0/Include/glm/gtc/constants.inl \
+ C:/VulkanSDK/1.4.309.0/Include/glm/ext/matrix_projection.inl \
+ C:/VulkanSDK/1.4.309.0/Include/glm/ext/matrix_clip_space.hpp \
+ C:/VulkanSDK/1.4.309.0/Include/glm/ext/matrix_clip_space.inl \
+ C:/VulkanSDK/1.4.309.0/Include/glm/ext/matrix_transform.hpp \
+ C:/VulkanSDK/1.4.309.0/Include/glm/ext/matrix_transform.inl \
+ C:/VulkanSDK/1.4.309.0/Include/glm/gtc/matrix_transform.inl \
+ C:/msys64/mingw64/include/c++/14.1.0/chrono \
+ C:/msys64/mingw64/include/c++/14.1.0/bits/chrono.h \
+ C:/msys64/mingw64/include/c++/14.1.0/ratio \
+ C:/msys64/mingw64/include/c++/14.1.0/ctime \
+ C:/msys64/mingw64/include/time.h C:/msys64/mingw64/include/sys/timeb.h \
+ C:/msys64/mingw64/include/sec_api/sys/timeb_s.h \
+ C:/msys64/mingw64/include/_timeval.h \
+ C:/msys64/mingw64/include/pthread_time.h \
+ C:/msys64/mingw64/include/c++/14.1.0/bits/parse_numbers.h \
  C:/msys64/mingw64/include/c++/14.1.0/iostream \
  C:/msys64/mingw64/include/c++/14.1.0/ostream \
  C:/msys64/mingw64/include/c++/14.1.0/ios \
@@ -233,10 +268,7 @@ CMakeFiles/vukan-renderer.dir/src/main.cpp.obj: \
  C:/msys64/mingw64/include/c++/14.1.0/bits/postypes.h \
  C:/msys64/mingw64/include/c++/14.1.0/cwchar \
  C:/msys64/mingw64/include/wchar.h \
- C:/msys64/mingw64/include/corecrt_stdio_config.h \
- C:/msys64/mingw64/include/_mingw_off_t.h \
  C:/msys64/mingw64/include/_mingw_stat64.h \
- C:/msys64/mingw64/include/swprintf.inl \
  C:/msys64/mingw64/include/sec_api/wchar_s.h \
  C:/msys64/mingw64/include/c++/14.1.0/exception \
  C:/msys64/mingw64/include/c++/14.1.0/bits/exception.h \
@@ -250,8 +282,7 @@ CMakeFiles/vukan-renderer.dir/src/main.cpp.obj: \
  C:/msys64/mingw64/include/c++/14.1.0/bits/localefwd.h \
  C:/msys64/mingw64/include/c++/14.1.0/x86_64-w64-mingw32/bits/c++locale.h \
  C:/msys64/mingw64/include/c++/14.1.0/clocale \
- C:/msys64/mingw64/include/locale.h C:/msys64/mingw64/include/stdio.h \
- C:/msys64/mingw64/include/sec_api/stdio_s.h \
+ C:/msys64/mingw64/include/locale.h \
  C:/msys64/mingw64/include/c++/14.1.0/cctype \
  C:/msys64/mingw64/include/ctype.h \
  C:/msys64/mingw64/include/c++/14.1.0/bits/ios_base.h \
@@ -264,10 +295,6 @@ CMakeFiles/vukan-renderer.dir/src/main.cpp.obj: \
  C:/msys64/mingw64/include/corecrt_startup.h \
  C:/msys64/mingw64/include/signal.h \
  C:/msys64/mingw64/include/pthread_signal.h \
- C:/msys64/mingw64/include/time.h C:/msys64/mingw64/include/sys/timeb.h \
- C:/msys64/mingw64/include/sec_api/sys/timeb_s.h \
- C:/msys64/mingw64/include/_timeval.h \
- C:/msys64/mingw64/include/pthread_time.h \
  C:/msys64/mingw64/include/pthread_compat.h \
  C:/msys64/mingw64/include/pthread_unistd.h \
  C:/msys64/mingw64/include/c++/14.1.0/x86_64-w64-mingw32/bits/atomic_word.h \
@@ -350,6 +377,4 @@ CMakeFiles/vukan-renderer.dir/src/main.cpp.obj: \
  C:/msys64/mingw64/include/c++/14.1.0/set \
  C:/msys64/mingw64/include/c++/14.1.0/bits/stl_set.h \
  C:/msys64/mingw64/include/c++/14.1.0/bits/stl_multiset.h \
- C:/msys64/mingw64/include/c++/14.1.0/cstring \
- C:/msys64/mingw64/include/string.h \
- C:/msys64/mingw64/include/sec_api/string_s.h
+ C:/msys64/mingw64/include/c++/14.1.0/cstring

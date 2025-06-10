@@ -19,6 +19,8 @@ Implement picking.
 // #define VK_USE_PLATFORM_WIN32_KHR
 #define GLFW_INCLUDE_VULKAN
 #define GLM_FORCE_RADIANS
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb_image.h>
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp> // for model transformations, view transformations, and projection transformations
@@ -209,9 +211,10 @@ struct Vertex {
 
 // uniform buffer object for our camera since we're going into 3D now
 struct UniformBufferObject {
-    glm::mat4 model;
-    glm::mat4 view;
-    glm::mat4 proj;
+    // always explicitly define alignment
+    alignas(16) glm::mat4 model;
+    alignas(16 )glm::mat4 view;
+    alignas(16) glm::mat4 proj;
 };
 
 class HelloTriangleApplication{
@@ -237,6 +240,10 @@ private:
     // Queues
     VkQueue graphicsQueue;
     VkQueue presentQueue;
+
+    // texture image
+    VkImage textureImage;
+    VkDeviceMemory textureImageMemory;
 
     // our swapChain
     VkSwapchainKHR swapChain;
@@ -841,6 +848,9 @@ private:
 
             vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
+            // descriptor sets aren't unique to graphics pipelines so we need to specify a binding point
+            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[currentFrame], 0, nullptr);
+
             // we did specify a viewport and scissor state for this pipeline to be dynamic so we must set them in the command buffer before issuing our draw command
             VkViewport viewport{};
             viewport.x = 0.0f;
@@ -920,26 +930,7 @@ private:
 
     // Helper function to copy from one buffer to another buffer
     void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) {
-        // luckily we don't have to create a new command pool beacuse VK_QUEUE_TRANSFER_BIT is implicitly support with VK_QUEUE_GRAPHICS_BIT
-        VkCommandBufferAllocateInfo allocInfo{};
-        allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-        allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-        allocInfo.commandPool = commandPool;
-        allocInfo.commandBufferCount = 1;
-
-        // our command buffer we'll write commands too
-        VkCommandBuffer commandBuffer;
-        vkAllocateCommandBuffers(device, &allocInfo, &commandBuffer);
-
-        // begin info for command buffer so we can start recording
-        VkCommandBufferBeginInfo beginInfo{};
-        beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-        beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT; // only going to use the command buffer once and wait unitl copy operation is finished executing
-
-        // immediately staart recording to command buffer
-        if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS) {
-            throw std::runtime_error("failed to begin copy command buffer!");
-        }
+        VkCommandBuffer commandBuffer = beginSingleTimeCommands();
 
         // this is a struct specifying a buffer copy operation
         // info for our copy command function
@@ -951,24 +942,7 @@ private:
         // contents of srcBuffer are transferred to dstBuffer and an array of regions to copy
         vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
 
-        if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
-            throw std::runtime_error("failed to end copy command buffer!");
-        }
-
-        VkSubmitInfo submitInfo{};
-        submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-        submitInfo.commandBufferCount = 1;
-        submitInfo.pCommandBuffers = &commandBuffer;
-
-        // no we're going to submit our commands to the graphics family
-        if (vkQueueSubmit(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS) {
-            throw std::runtime_error("failed to submit to transfer queue!");
-        }
-        // we're going to wait for the transfer queue to become idle before submitting to it
-        // we're opting for immediate execution with this command and if we wanted to do multiple transfers simultaneously then we could use a fence
-        vkQueueWaitIdle(graphicsQueue);
-
-        vkFreeCommandBuffers(device, commandPool, 1,&commandBuffer);
+        endSingleTimeCommands(commandBuffer);
     }
 
     /*
@@ -1021,6 +995,91 @@ private:
         memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
     }
 
+    void createTextureImage(int width, int height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags prop, VkImage& image, VkDeviceMemory& imageMemory) {
+        // steps are similar to the creation and allocation of buffers
+        // now we'll create the image itself
+        VkImageCreateInfo imageInfo{};
+        imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+        imageInfo.imageType = VK_IMAGE_TYPE_2D;
+        imageInfo.extent.width = static_cast<uint32_t>(width);
+        imageInfo.extent.height = static_cast<uint32_t>(height);
+        imageInfo.extent.depth = 1;
+        imageInfo.mipLevels = 1;
+        imageInfo.arrayLayers = 1;
+        imageInfo.format = format;
+        // this can have one of two values, optimal means the texels are laid out in an implementation defined order for optimal access from the shader
+        imageInfo.tiling = tiling;
+        // not usable by the GPU and the very first transition will discard the texels
+        // we don't need to preserve any previous texel data since we're using this image as a transfer destination, if we were using another image as a transfer src we'd use VK_IMAGE_LAYOUT_PREINITIALIZED
+        imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        // so we can transfer our information over from a buffer
+        // sampled bit usage type is for accessing the image from the shader to color our mesh
+        imageInfo.usage = usage;
+        // will only be used by one queue family
+        imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+        // this is for multi sampling and is only relevant for images that will be used as attachments
+        imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+        imageInfo.flags = 0;
+
+        if (vkCreateImage(device, &imageInfo, nullptr, &image) != VK_SUCCESS) {
+            throw std::runtime_error("failed to create texture image!");
+        }
+
+        // now we get the memory requirements of the image
+        VkMemoryRequirements memRequirements;
+        vkGetImageMemoryRequirements(device, image, &memRequirements);
+
+        VkMemoryAllocateInfo allocInfo{};
+        allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+        allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, prop);
+        allocInfo.allocationSize = memRequirements.size;
+
+        if (vkAllocateMemory(device, &allocInfo, nullptr, &imageMemory) != VK_SUCCESS ) {
+            throw std::runtime_error("failed to allocate image memory!");
+        }
+
+        vkBindImageMemory(device, image, imageMemory, 0);
+    }
+
+    VkCommandBuffer beginSingleTimeCommands() {
+        VkCommandBufferAllocateInfo allocInfo{};
+        allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+        allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+        allocInfo.commandPool = commandPool;
+        allocInfo.commandBufferCount = 1;
+
+        VkCommandBuffer commandBuffer;
+        vkAllocateCommandBuffers(device, &allocInfo, &commandBuffer);
+
+        VkCommandBufferBeginInfo beginInfo{};
+        beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+        beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+        vkBeginCommandBuffer(commandBuffer, &beginInfo);
+
+        return commandBuffer;
+    }
+
+    void endSingleTimeCommands(VkCommandBuffer commandBuffer) {
+        vkEndCommandBuffer(commandBuffer);
+
+        VkSubmitInfo submitInfo{};
+        submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+        submitInfo.commandBufferCount = 1;
+        submitInfo.pCommandBuffers = &commandBuffer;
+
+        vkQueueSubmit(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
+        vkQueueWaitIdle(graphicsQueue);
+        vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
+    }
+
+    // before we can copy a buffer into an image we must ensure the image is in the correct layout
+    void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout) {
+        VkCommandBuffer commandBuffer = beginSingleTimeCommands();
+
+        endSingleTimeCommands(commandBuffer);
+    }
+
     // Store and initiate each vulkan object
     void initVulkan() {
         // Is called on it's own to initialize vulkan
@@ -1036,6 +1095,7 @@ private:
         createGraphicsPipeline();
         createFrameBuffers();
         createCommandPool();
+        createTextureImage();
         createVertexBuffer();
         createIndexBuffer();
         createUniformBuffers();
@@ -1043,6 +1103,34 @@ private:
         createDescriptorSets();
         createCommandBuffers();
         createSyncObjects();
+    }
+
+    // Function to load an image and upload it to a vulkan image object
+    // A texel is just a pixel of a texture map
+    void createTextureImage() {
+        int width, height, channels;
+        stbi_uc* pixels = stbi_load("../textures/saladin.jpg", &width, &height, &channels, STBI_rgb_alpha);
+
+        VkDeviceSize imageSize = width * height * 4;
+
+        if (!pixels) {
+            throw std::runtime_error("failed to load texture image!");
+        }
+
+        // create a staging buffer so we can memcpy and vkmapmemory
+        VkBuffer stagingBuffer;
+        VkDeviceMemory stagingBufferMemory;
+
+        createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBufferMemory, stagingBuffer);
+
+        void* data;
+        vkMapMemory(device, stagingBufferMemory, 0, imageSize, 0, &data);
+        memcpy(data, pixels, static_cast<size_t>(imageSize));
+        vkUnmapMemory(device, stagingBufferMemory);
+
+        stbi_image_free(pixels);
+
+        createTextureImage(width, height, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, textureImage, textureImageMemory);
     }
 
     /*
@@ -1055,22 +1143,56 @@ private:
         VkDescriptorSetAllocateInfo allocInfo{};
         allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
         allocInfo.descriptorPool = descriptorPool;
+        // this tells the program to create 2 different descriptor sets and there is a separate table of layouts for each descriptor set
+        // our function doesn't necessarily know these descriptor sets are the same, it just knows to create 2 "different" descriptor sets associated with 2 "different" layouts
         allocInfo.descriptorSetCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
         allocInfo.pSetLayouts = layouts.data();
 
         descriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
 
+        /*
+            When we call VkAllocateDescriptorSets to create a descriptor set the vulkan driver looks at the set layout to see how many and what types of descriptors this set requires
+            it then deducts these required descriptors from the remaining total capacity
+            the descriptor set is then return as a pointer that was already preallocate by the pool
+        */
         if (vkAllocateDescriptorSets(device, &allocInfo, descriptorSets.data()) != VK_SUCCESS) {
             throw std::runtime_error("failed to allocate descriptor sets!");
         }
 
+        // When the descriptor sets are actually created and allocated they remain largely uninitialized and the descriptors themselves aren't defined
+        for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+            // a descriptor that refers to buffers, a descriptor isn't a buffer
+            VkDescriptorBufferInfo bufferInfo{};
+            bufferInfo.buffer = uniformBuffers[i];
+            bufferInfo.offset = 0;
+            bufferInfo.range = sizeof(UniformBufferObject);
+
+            // we update the config of descriptors using this
+            VkWriteDescriptorSet descriptorWrite{};
+            descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            // which descriptor set to update and the binding to update
+            descriptorWrite.dstSet = descriptorSets[i];
+            descriptorWrite.dstBinding = 0;
+            descriptorWrite.dstArrayElement = 0;
+            // specify the type of the descriptor
+            descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+            descriptorWrite.descriptorCount = 1;
+            descriptorWrite.pBufferInfo = &bufferInfo;
+            descriptorWrite.pImageInfo = nullptr;
+            descriptorWrite.pTexelBufferView = nullptr;
+
+            vkUpdateDescriptorSets(device, 1, &descriptorWrite, 0, nullptr);
+        }
 
     }
 
     /*
         We can't just create a descriptor set we must create a descriptor pool first to allocate the memory required
+
+        when we call 
     */
     void createDescriptorPool() {
+        // the memory allocation for the descriptors within a set are pre allocated
         VkDescriptorPoolSize poolSize{};
         poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
         // max number of descriptors that are available
@@ -1079,6 +1201,7 @@ private:
         VkDescriptorPoolCreateInfo createInfo{};
         createInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
         createInfo.poolSizeCount = 1;
+        // a pointer to an array of VkDescriptorPoolSize objects, each would contain a descriptor type and a number of descriptors of that type to allocate in the pool
         createInfo.pPoolSizes = &poolSize;
         // maximum amount of descriptor sets that can be allocated
         createInfo.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
@@ -1089,10 +1212,41 @@ private:
     }
 
     /*
+        Uniform value: a value that's going to remain constant through the rendering process and graphics pipeline from one draw call
+        Uniform Buffer: a buffer on the gpu that stores all of our uniform values for our pipeline (one of our resources)
+        Descriptor: a pointer to a specific resource that can be accessed by shaders
+        Descriptor set: a set of these pointers to different resources 
+        Descriptor set layout: a blueprint, like a renderpass, of the types of resources going to be accessed by the pipeline
+
+        each descriptor set layout refers to a specific descriptor set at a certain "slot"
+    */
+    void createDescriptorSetLayout() {
+        // every binding needs to be described
+        // it can take in a list of bindings
+        VkDescriptorSetLayoutBinding uboLayoutBinding{};
+        // our uniform buffer object resource is going to be binding to index 0
+        uboLayoutBinding.binding = 0;
+        // the number of descriptors contained in that single binding which will be accessed as an array
+        uboLayoutBinding.descriptorCount = 1;
+        uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        uboLayoutBinding.pImmutableSamplers = nullptr;
+        // specifies which shader stages the descriptor is going to be referenced in
+        // we're only referencing this descriptor 
+        uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+
+        VkDescriptorSetLayoutCreateInfo createInfo{};
+        createInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+        createInfo.bindingCount = 1;
+        createInfo.pBindings = &uboLayoutBinding;
+
+        if (vkCreateDescriptorSetLayout(device, &createInfo, nullptr, &descriptorSetLayout) != VK_SUCCESS) {
+            throw std::runtime_error("failed to create descriptor set layout!");
+        }
+    }
+
+    /*
         From what I understand the reason why we have 2 different UBOs because we're preparing 2 different frames per time it takes the GPU to execute 1
         Each UBO will have the specific updated values for that current frame
-
-        This prevents 
     */
     void createUniformBuffers() {
         VkDeviceSize size = sizeof(UniformBufferObject);
@@ -1108,35 +1262,6 @@ private:
             // this will make a pointer to a memory region on the gpu 
             // we'll write some data to this pointer later
             vkMapMemory(device, uniformBuffersMemory[i], 0, size, 0, &uniformBuffersMapped[i]);
-        }
-    }
-
-    /*
-        Uniform value: a value that's going to remain constant through the rendering process and graphics pipeline from one draw call
-        Uniform Buffer: a buffer on the gpu that stores all of our uniform values for our pipeline (one of our resources)
-        Descriptor: a pointer to a specific resource that can be accessed by shaders
-        Descriptor set: a set of these pointers to different resources 
-        Descriptor set layout: a blueprint, like a renderpass, of the types of resources going to be accessed by the pipeline
-    */
-    void createDescriptorSetLayout() {
-        // every binding needs to be described
-        VkDescriptorSetLayoutBinding uboLayoutBinding{};
-        // our uniform buffer object resource is going to be binding to index 0
-        uboLayoutBinding.binding = 0;
-        uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        uboLayoutBinding.descriptorCount = 1;
-        // specifies which shader stages the descriptor is going to be referenced in
-        // we're only referencing this descriptor 
-        // we're going to get this uniform buffer object from binding 0 of our descriptor set
-        uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-
-        VkDescriptorSetLayoutCreateInfo createInfo{};
-        createInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-        createInfo.bindingCount = 1;
-        createInfo.pBindings = &uboLayoutBinding;
-
-        if (vkCreateDescriptorSetLayout(device, &createInfo, nullptr, &descriptorSetLayout) != VK_SUCCESS) {
-            throw std::runtime_error("failed to create descriptor set layout!");
         }
     }
 
@@ -1418,6 +1543,7 @@ private:
         // however the layout of the pixels in memory can change based on what you're trying to do, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR represent images to be presented in the swap chain
         // what's important to know is that images are going to be transitioned to a specific layout that are suitable for the operations they're going to be involved in
         colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED; // layout before rendering pass begins
+        // image layout that's most optimal for presentaiton
         colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR; // layout to automatically transition to after
         /*
             A single render pass can consist of multiple sub passes
@@ -1650,7 +1776,7 @@ private:
             frontface variables specifies the vertex order for faces to be considered front-facing 
         */
         rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
-        rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
+        rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
         // The rasterizer can alter the depth values by adding a constant value or biasing them based on the fragments slope
         rasterizer.depthBiasEnable = VK_FALSE;
         rasterizer.depthBiasConstantFactor = 0.0f;
@@ -2130,6 +2256,9 @@ private:
             throw std::runtime_error("failed to acquire swap chain image!");
         }
 
+        // update uniform buffer before submitting next frame
+        updateUniformBuffer(currentFrame);
+
         /*
             after waiting we manually reset the fence to the unsignaled state because we signaled it in the beginning to continue
             We want to avoid resetting our fence until we know we will for sure be submitting work with it
@@ -2138,9 +2267,6 @@ private:
             only reset if we an image is acquired for submission
         */
         vkResetFences(device, 1, &inFlightFences[currentFrame]);
-
-        // update uniform buffer before submitting next frame
-        updateUniformBuffer(currentFrame);
 
         // reset command buffer so we can use for recording to
         vkResetCommandBuffer(commandBuffers[currentFrame], 0);

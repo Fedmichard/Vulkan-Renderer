@@ -4,10 +4,11 @@ project(vukan-renderer)
 set(CMAKE_CXX_STANDARD 17)
 
 include_directories(includes)
+include_directories(shaders)
+include_directories(textures)
 
 include_directories(libraries/glm)
 include_directories(libraries/GLFW/include)
-include_directories(shaders)
 include_directories(C:/VulkanSDK/1.4.309.0/Include)
 
 link_directories(libraries/GLFW/lib)
