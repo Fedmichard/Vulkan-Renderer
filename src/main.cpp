@@ -316,7 +316,7 @@ private:
         {{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
         {{0.5f, -0.5f},  {0.0f, 1.0f, 0.0f}},
         {{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
-        {{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}}
+        {{-0.5f, 0.5f}, {1.0f, 1.0f, 0.0f}}
     };
 
     // essentially an array of pointers to our vertex buffer
@@ -995,7 +995,13 @@ private:
         memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
     }
 
-    void createTextureImage(int width, int height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags prop, VkImage& image, VkDeviceMemory& imageMemory) {
+    /*
+        We created the image 'buffer' of sorts
+        we got the memory requirements of the image
+        we allocated a region of memory on the gpu that suits are memory requirements, memory type, and memory properties we're searching for
+        we binded that buffer to that region of memory
+    */
+    void createImage(int width, int height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags prop, VkImage& image, VkDeviceMemory& imageMemory) {
         // steps are similar to the creation and allocation of buffers
         // now we'll create the image itself
         VkImageCreateInfo imageInfo{};
@@ -1073,11 +1079,63 @@ private:
         vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
     }
 
-    // before we can copy a buffer into an image we must ensure the image is in the correct layout
+    /*
+        before we can copy a buffer into an image we must ensure the image is in the correct layout
+        this means explicitly changing the internal memory arrangement of a VkImage to ensure it is the correct layout
+        we already created our vkImage earlier but we need to ensure it is in the correct layout and format
+
+        apparently images are already pretty complex compared to a buffer
+        their internal memory organization, the texels (which once again are texture pixel data), can be optimized for different usages
+        the same image would change their memory layout for faster more optimized reading and writing
+    */
     void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout) {
+        // a layout transition is a command you run into a command buffer
         VkCommandBuffer commandBuffer = beginSingleTimeCommands();
 
+        // using an image memory barrier 
+        VkImageMemoryBarrier barrier{};
+        barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        // specify the actual layout transition
+        barrier.oldLayout = oldLayout;
+        barrier.newLayout = newLayout;
+        // we're not using the barrier to transfer queue family ownership so we can ignore this stage
+        barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        // specify the image that is afffected and the specific part of the image
+        // our image isn't an array and doesn't have mipmapping levels so only one level and layer are specified
+        barrier.image = image;
+        barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        barrier.subresourceRange.baseMipLevel = 0;
+        barrier.subresourceRange.levelCount = 1;
+        barrier.subresourceRange.baseArrayLayer = 0;
+        barrier.subresourceRange.layerCount = 1;
+        // to do later?
+        barrier.srcAccessMask = 0;
+        barrier.dstAccessMask = 0;
+        /*
+            because we're using barriers
+            and because barries are for sync purposes typically
+            we must define what types of operations are used before the barrier and what type must wait on the barrier
+
+            all types of pipeline barriers are submitted using this same function
+        */
+        vkCmdPipelineBarrier( // inserts a memory dependency
+            commandBuffer,
+            0 /* TODO */, 0 /* TODO */, /* 1. pipeline stage operations that occur before the barrier 2. the pipeline stage in which operations will wait on barrier */
+            0,
+            0, nullptr,
+            0, nullptr,
+            1, &barrier
+        );
+
         endSingleTimeCommands(commandBuffer);
+    }
+
+    /*
+        We created our image info in a
+    */
+    void copyBufferToImage() {
+        
     }
 
     // Store and initiate each vulkan object
@@ -1105,6 +1163,7 @@ private:
         createSyncObjects();
     }
 
+    // Whenever we need to use an image we have to kind of surround it in a vulkan object so we can use in our program
     // Function to load an image and upload it to a vulkan image object
     // A texel is just a pixel of a texture map
     void createTextureImage() {
@@ -1130,7 +1189,7 @@ private:
 
         stbi_image_free(pixels);
 
-        createTextureImage(width, height, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, textureImage, textureImageMemory);
+        createImage(width, height, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, textureImage, textureImageMemory);
     }
 
     /*
@@ -1188,8 +1247,6 @@ private:
 
     /*
         We can't just create a descriptor set we must create a descriptor pool first to allocate the memory required
-
-        when we call 
     */
     void createDescriptorPool() {
         // the memory allocation for the descriptors within a set are pre allocated
@@ -2281,6 +2338,7 @@ private:
         // specifies which semaphore to signal once the command buffer has finished execution
         VkSemaphore signalSemaphores[] = { renderFinishedSemaphores[currentFrame] };
         // specifies which semaphores we'll be using and which stages of the pipeline to wait; we're waiting on the color attachment stage
+        // semaphores are used between pipeline stages?
         // the wait will occur at the color attachment stage, aka our render targets aka our image views aka our images
         VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
         submitInfo.waitSemaphoreCount = 1;
