@@ -243,6 +243,8 @@ private:
 
     // texture image
     VkImage textureImage;
+    VkImageView textureImageView;
+    VkSampler textureSampler;
     VkDeviceMemory textureImageMemory;
 
     // our swapChain
@@ -530,7 +532,10 @@ private:
             swapChainAdequate = !swapChainSupport.formats.empty() && !swapChainSupport.presentModes.empty();
         }
 
-        return indices.isComplete() && extensionsSupported && swapChainAdequate;
+        VkPhysicalDeviceFeatures features;
+        vkGetPhysicalDeviceFeatures(physicalDevice, &features);
+
+        return indices.isComplete() && extensionsSupported && swapChainAdequate && features.samplerAnisotropy;
     }
 
     bool checkDeviceExtensionSupport(VkPhysicalDevice device) {
@@ -946,6 +951,7 @@ private:
     }
 
     /*
+        a buffer is kind of a label that the gpu can reference to use and access a specific region of gpu memory
         Now that we're going to need multiple buffers 
     */
     void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags props, VkDeviceMemory& bufferMemory, VkBuffer& buffer) {
@@ -1047,6 +1053,7 @@ private:
         vkBindImageMemory(device, image, imageMemory, 0);
     }
 
+    // creates a command buffer, begins the process to write to it, and returns it
     VkCommandBuffer beginSingleTimeCommands() {
         VkCommandBufferAllocateInfo allocInfo{};
         allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -1065,7 +1072,8 @@ private:
 
         return commandBuffer;
     }
-
+    
+    // ends a command buffer and submits it to a queue
     void endSingleTimeCommands(VkCommandBuffer commandBuffer) {
         vkEndCommandBuffer(commandBuffer);
 
@@ -1087,12 +1095,19 @@ private:
         apparently images are already pretty complex compared to a buffer
         their internal memory organization, the texels (which once again are texture pixel data), can be optimized for different usages
         the same image would change their memory layout for faster more optimized reading and writing
+
+        fundamentally GPUs are designed to run parallel processes
+        Memory barriers are typically used as a synchronization point to ensure specific ordering and visibility of memory operations across different execution units
+        forces the system to complete preceding memory operations before any other memory operations are allowed to begin
+        ensures that memory operations are ordered and visible across different parts of the GPU pipeline
+        or it ensures cpu to gpu operations for specific memory regions
     */
     void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout) {
         // a layout transition is a command you run into a command buffer
         VkCommandBuffer commandBuffer = beginSingleTimeCommands();
 
         // using an image memory barrier 
+        // memory barriers are used within the GPU pipeline
         VkImageMemoryBarrier barrier{};
         barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
         // specify the actual layout transition
@@ -1112,16 +1127,41 @@ private:
         // to do later?
         barrier.srcAccessMask = 0;
         barrier.dstAccessMask = 0;
+
+        VkPipelineStageFlags srcStage; // the pipeline stage where srcAccessMask operations occur
+        VkPipelineStageFlags dstStage; // the pipeline stage where dstAccessMask operations occur
+
+        // we need to set our srcStageMask and dstStageMask pipeline stage flags depending on what image transition layout we're creating
+        if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
+            // barrier configurations
+            barrier.srcAccessMask = 0; // no previous accesses occuring before to wait for
+            barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT; // once layout transition is complete and specifies the subsequent memory operations that will occur 
+
+            srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT; // beginning of pipeline 
+            dstStage = VK_PIPELINE_STAGE_TRANSFER_BIT; // the stage where data operations occur [ THIS IS A PSEUDO STAGE  WHERE TRANSFERS OCCUR NOT AN ACTUAL ONE IN THE PIPELINE]
+        
+        // set our source and destination masks to prepare an image between transfer destination layout and shader read only layout
+        } else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
+            barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+            barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+            srcStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+            dstStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+        } else {
+            throw std::runtime_error("unsupported layout transition!");
+        }
+
         /*
             because we're using barriers
             and because barries are for sync purposes typically
             we must define what types of operations are used before the barrier and what type must wait on the barrier
 
-            all types of pipeline barriers are submitted using this same function
+            all types of pipeline barriers are submitted to the gpu using this same function
+            when you call this function you are telling the GPU to create a synchronization point into the command buffer
         */
         vkCmdPipelineBarrier( // inserts a memory dependency
             commandBuffer,
-            0 /* TODO */, 0 /* TODO */, /* 1. pipeline stage operations that occur before the barrier 2. the pipeline stage in which operations will wait on barrier */
+            srcStage /* TODO */, dstStage /* TODO */, /* 1. pipeline stage operations that occur before the barrier 2. the pipeline stage in which operations will wait on barrier */
             0,
             0, nullptr,
             0, nullptr,
@@ -1132,10 +1172,90 @@ private:
     }
 
     /*
-        We created our image info in a
+        At this point we've created a staging buffer so that we can copy our texel data from the cpu into a region of memory on the gpu
+        with this we've used a src transfer bit usage flag, as well as the properties for copying and mapping memory region to a pointer
+
+        We then created a VkImage object which functions really closely to a buffer but its a more specific since the organization of the texel data can indicate its function
+        before we transfer the buffer data into the image object we have to ensure the texel data is in the correct layout in memory so we can transfer it after
+
+        once that's done we can use this function to copy the buffer data into an image object so that we can use
     */
-    void copyBufferToImage() {
-        
+    void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height) {
+        // creates a command buffer, begins the process to write to it, and returns it
+        VkCommandBuffer commandBuffer = beginSingleTimeCommands();
+
+        // before we did a VkBufferCopy since we were going between buffers, now we're using buffer image copy to go from buffer to image
+        VkBufferImageCopy copyRegion{};
+        // these 3 params specify memory layout
+        copyRegion.bufferOffset = 0;
+        // specifying the height and length are 0 means they are tightly packed with no offsets
+        copyRegion.bufferRowLength = 0;
+        copyRegion.bufferImageHeight = 0;
+
+        // which part of the image we want to copy the pixels
+        copyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        copyRegion.imageSubresource.mipLevel = 0;
+        copyRegion.imageSubresource.baseArrayLayer = 0;
+        copyRegion.imageSubresource.layerCount = 1;
+
+        copyRegion.imageOffset = { 0, 0, 0};
+        copyRegion.imageExtent = {
+            width,
+            height,
+            1
+        };
+
+        // submit command to buffer
+        vkCmdCopyBufferToImage(
+            commandBuffer,
+            buffer,
+            image,
+            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            1,
+            &copyRegion
+        );
+
+        // ends a command buffer and submits it to a queue
+        endSingleTimeCommands(commandBuffer);
+    }
+
+    VkImageView createImageView(VkImage image, VkFormat format) {
+        VkImageView imageView;
+
+        VkImageViewCreateInfo createInfo{};
+        createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+        createInfo.image = image;
+
+        // The view type and format specify how image data should be interpreted
+        // view type param allows you to treat images as 1D textures, 2D textures, 3D textures
+        createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+        // format, once again, is the surface format and that means how the pixels in an data is stored in memory like r8g8b8a8
+        createInfo.format = format;
+
+        /*
+            The components field allows you to swizzle the color channels around
+            You can map all of the channels to the red channel for monochrome for example
+            we'll stick with default
+        */
+        createInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+        createInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+        createInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+        createInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+
+        // The subresourceRange field describes what the image's purpose is and which part of the image should be accessed
+        // Our images will be used as color targets without any mipmapping levels or multiple layers
+        createInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        createInfo.subresourceRange.baseMipLevel = 0;
+        createInfo.subresourceRange.levelCount = 1;
+        createInfo.subresourceRange.baseArrayLayer = 0;
+        createInfo.subresourceRange.layerCount = 1;
+
+        // Now we can actually create the image views
+        if (vkCreateImageView(device, &createInfo, nullptr, &imageView) != VK_SUCCESS) {
+            throw std::runtime_error("failed to create image views!");
+        }
+
+        return imageView;
     }
 
     // Store and initiate each vulkan object
@@ -1154,6 +1274,8 @@ private:
         createFrameBuffers();
         createCommandPool();
         createTextureImage();
+        createTextureImageView();
+        createTextureSampler();
         createVertexBuffer();
         createIndexBuffer();
         createUniformBuffers();
@@ -1161,6 +1283,58 @@ private:
         createDescriptorSets();
         createCommandBuffers();
         createSyncObjects();
+    }
+
+    /*
+        while shaders can access texel data from images directly, when it comes to textures it is more common for them to access it through samplers
+        samplers apply filtering and transformations to compute final color retrieved by shaders
+        we'll use the sampler to read colors from the texture in the shader
+    */
+    void createTextureSampler() {
+        VkPhysicalDeviceProperties props{};
+        vkGetPhysicalDeviceProperties(physicalDevice, &props);
+        // specifies all filters and transformations the sampler should apply
+        VkSamplerCreateInfo samplerInfo{};
+        samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+        // how to interpolate texels that are magnified or minified
+        // this targets oversampling and undersamping. Oversampling = less texels than fragments, undersampling = more texels than fragments
+        samplerInfo.magFilter = VK_FILTER_LINEAR;
+        samplerInfo.minFilter = VK_FILTER_LINEAR;
+        // axis are called u, v, w instead of x, y, z
+        // repeat the texture when going beyond the image dimesions (think of video editing)
+        samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+        samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+        samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+        // only reason to not use this is if performance is a concern, max limits the amount of texerl samples can be used to calculate the final color
+        // the lower the max the better the performance but the lower the quality
+        // we will get this number within the properties of our physical device
+        samplerInfo.anisotropyEnable = VK_TRUE;
+        samplerInfo.maxAnisotropy = props.limits.maxSamplerAnisotropy;
+        // which color is returned when sampling beyond the image, you can only do black, white, or transparaent
+        samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+        // which coordinate system you want to use to address texels in an image
+        // we address ours in a [0, 1) range on axes, real world applications almost always use normalized coordinates
+        // if we did true for unnormalized coordinates it would be [0, texWidth) and [0, texHeight)
+        samplerInfo.unnormalizedCoordinates = VK_FALSE;
+        // if comparison function is enabled, the texels will first be compared to a value and the result is used in filtering operations
+        // used for percentage-closer filtering on shadow maps
+        samplerInfo.compareEnable = VK_FALSE;
+        samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
+        // these all apply to mipmapping which is just another type of filter that can be applied
+        samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+        samplerInfo.mipLodBias = 0.0f;
+        samplerInfo.minLod = 0.0f;
+        samplerInfo.maxLod = 0.0f;
+
+        // the samepler is a distinct object that provides an interface to extract colors from a texture and can be applied to any image you want
+        // older APIs use t ocombine texture iamges and filtering into one state
+        if (vkCreateSampler(device, &samplerInfo, nullptr, &textureSampler) != VK_SUCCESS) {
+            throw std::runtime_error("failed to create texture sampler!");
+        }
+    }
+
+    void createTextureImageView() {
+        textureImageView = createImageView(textureImage, VK_FORMAT_R8G8B8A8_SRGB);
     }
 
     // Whenever we need to use an image we have to kind of surround it in a vulkan object so we can use in our program
@@ -1180,8 +1354,10 @@ private:
         VkBuffer stagingBuffer;
         VkDeviceMemory stagingBufferMemory;
 
+        // create our buffer, bind it to a region in gpu memory, look for this buffer type with these specific properties
         createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBufferMemory, stagingBuffer);
 
+        // host accessible pointer to gpu memory location
         void* data;
         vkMapMemory(device, stagingBufferMemory, 0, imageSize, 0, &data);
         memcpy(data, pixels, static_cast<size_t>(imageSize));
@@ -1189,7 +1365,37 @@ private:
 
         stbi_image_free(pixels);
 
+        // create an image, similarly to a buffer
+        // pay attention to usage sampled bit
         createImage(width, height, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, textureImage, textureImageMemory);
+
+        // make sure image is in correct layout by transitioning it
+        // so after we create our image we change it to the correct format for copying from a buffer
+        transitionImageLayout(
+            textureImage, // the texture image object
+            VK_FORMAT_R8G8B8A8_SRGB, // the format the image we created
+            VK_IMAGE_LAYOUT_UNDEFINED, // we used undefined since didn't care about previous texel data since we're using this image as a transfer destination
+            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL // the new layout from undefined to transfer dst optimal
+        );
+
+        // copy the buffer data to image
+        copyBufferToImage(
+            stagingBuffer,
+            textureImage,
+            static_cast<uint32_t>(width),
+            static_cast<uint32_t>(height) 
+        );
+
+        // then we transfer the image one more time so that the shader can access the image
+        transitionImageLayout(
+            textureImage,
+            VK_FORMAT_R8G8B8A8_SRGB,
+            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+        );
+
+        vkDestroyBuffer(device, stagingBuffer, nullptr);
+        vkFreeMemory(device, stagingBufferMemory, nullptr);
     }
 
     /*
@@ -1545,6 +1751,7 @@ private:
     // Now we can create our framebuffers
     // Framebuffer just represents a single instance of a rendering target, in our case it'll be an instance of an image and some of it's information
     // Think of the renderpass as a recipe and the framebuffer as the tools needed to create our recipe (which is our iamge in this case)
+    // it's a specific instatiation of a renderpass attachment, in our case it's our vkimageviews
     void createFrameBuffers() {
         // first we must resize our framebuffer vector by the size of our vkImageViews
         swapChainFramebuffers.resize(swapChainImageViews.size());
@@ -1943,38 +2150,7 @@ private:
         // Iterate through over all of the swap chain images
         // We're creating an image view for each swap chain image
         for (size_t i = 0; i < swapChainImages.size(); i++) {
-            VkImageViewCreateInfo createInfo{};
-            createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-            createInfo.image = swapChainImages[i];
-
-            // The view type and format specify how image data should be interpreted
-            // view type param allows you to treat images as 1D textures, 2D textures, 3D textures
-            createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-            // format, once again, is the surface format and that means how the pixels in an data is stored in memory like r8g8b8a8
-            createInfo.format = swapChainImageFormat;
-
-            /*
-                The components field allows you to swizzle the color channels around
-                You can map all of the channels to the red channel for monochrome for example
-                we'll stick with default
-            */
-           createInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
-           createInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
-           createInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
-           createInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
-
-           // The subresourceRange field describes what the image's purpose is and which part of the image should be accessed
-           // Our images will be used as color targets without any mipmapping levels or multiple layers
-           createInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-           createInfo.subresourceRange.baseMipLevel = 0;
-           createInfo.subresourceRange.levelCount = 1;
-           createInfo.subresourceRange.baseArrayLayer = 0;
-           createInfo.subresourceRange.layerCount = 1;
-
-           // Now we can actually create the image views
-           if (vkCreateImageView(device, &createInfo, nullptr, &swapChainImageViews[i]) != VK_SUCCESS) {
-            throw std::runtime_error("failed to create image views!");
-           }
+            swapChainImageViews[i] = createImageView(swapChainImages[i], swapChainImageFormat);
         }
     }
 
@@ -2145,6 +2321,9 @@ private:
         // Enabling our device extensions (VK_KHR_swapchain)
         createInfo.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size());
         createInfo.ppEnabledExtensionNames = deviceExtensions.data();
+
+        // enable anisotropic filtering
+        deviceFeatures.samplerAnisotropy = VK_TRUE;
 
         // Done on a device level to perform checks on the specific operations performed on device
         if (enableValidationLayers) {
@@ -2414,6 +2593,12 @@ private:
             vkDestroyBuffer(device, uniformBuffers[i], nullptr);
             vkFreeMemory(device, uniformBuffersMemory[i], nullptr);
         }
+
+        vkDestroySampler(device, textureSampler, nullptr);
+        vkDestroyImageView(device, textureImageView, nullptr);
+
+        vkDestroyImage(device, textureImage, nullptr);
+        vkFreeMemory(device, textureImageMemory, nullptr);
 
         vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
 
