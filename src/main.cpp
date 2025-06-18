@@ -1456,16 +1456,21 @@ private:
     */
     void createDescriptorPool() {
         // the memory allocation for the descriptors within a set are pre allocated
-        VkDescriptorPoolSize poolSize{};
-        poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        std::array<VkDescriptorPoolSize, 2> poolSizes{};
+        // uniform buffer descriptor
+        poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
         // max number of descriptors that are available
-        poolSize.descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+        poolSizes[0].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+        // combined image sampler descriptor
+        poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        // max number of descriptors that are available
+        poolSizes[1].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
 
         VkDescriptorPoolCreateInfo createInfo{};
         createInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-        createInfo.poolSizeCount = 1;
+        createInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
         // a pointer to an array of VkDescriptorPoolSize objects, each would contain a descriptor type and a number of descriptors of that type to allocate in the pool
-        createInfo.pPoolSizes = &poolSize;
+        createInfo.pPoolSizes = poolSizes.data();
         // maximum amount of descriptor sets that can be allocated
         createInfo.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
 
@@ -1494,13 +1499,28 @@ private:
         uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
         uboLayoutBinding.pImmutableSamplers = nullptr;
         // specifies which shader stages the descriptor is going to be referenced in
-        // we're only referencing this descriptor 
+        // we're only referencing this descriptor in the vertex stage since it is needed for applying vertex transformations 
         uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+
+        // a new binding for our combined image sampler descriptor, this allows the shader to access our sampler
+        VkDescriptorSetLayoutBinding samplerLayoutBinding{};
+        samplerLayoutBinding.binding = 1;
+        samplerLayoutBinding.descriptorCount = 1;
+        samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        samplerLayoutBinding.pImmutableSamplers = nullptr;
+        // calling the sampler in the fragment stage so we can read texel data and color data to apply transformations and filtering to create final color output
+        samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+        // we use array because it's fixed size
+        std::array<VkDescriptorSetLayoutBinding, 2> bindings = {
+            uboLayoutBinding,
+            samplerLayoutBinding
+        };
 
         VkDescriptorSetLayoutCreateInfo createInfo{};
         createInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-        createInfo.bindingCount = 1;
-        createInfo.pBindings = &uboLayoutBinding;
+        createInfo.bindingCount = static_cast<uint32_t>(bindings.size());
+        createInfo.pBindings = bindings.data();
 
         if (vkCreateDescriptorSetLayout(device, &createInfo, nullptr, &descriptorSetLayout) != VK_SUCCESS) {
             throw std::runtime_error("failed to create descriptor set layout!");
