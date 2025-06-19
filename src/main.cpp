@@ -157,7 +157,8 @@ struct Vertex {
     // an attribute associated with our vertex
     // this is the vertices color attribute
     glm::vec3 color;
-
+    // attribute associated with the textures
+    glm::vec2 texCoord;
     /*
         the next step would be telling vulkan how to pass this data format to the vertex data when we pass it into gpu memory
         a vertex binding describes the rate to load data from memory throughout vertices
@@ -186,8 +187,8 @@ struct Vertex {
     // we're creating a fixed size array of 2 VkVertexInputAttributeDescriptions
     // input into you're shader, describes how an individual vertex attribute is extracted from a chunk of vertex data originating from a specific binding description
     // Since we have 2 attributes being position and color, we'll have an array of 2 attributes which will define how each are extracted
-    static std::array<VkVertexInputAttributeDescription, 2> getAttributeDescriptions() {
-        std::array<VkVertexInputAttributeDescription, 2> attributeDescriptions{};
+    static std::array<VkVertexInputAttributeDescription, 3> getAttributeDescriptions() {
+        std::array<VkVertexInputAttributeDescription, 3> attributeDescriptions{};
 
         // how we extract position attribute
         // binding is the unique identifier that connects description to vertex buffer
@@ -204,6 +205,13 @@ struct Vertex {
         // aka a vec3
         attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
         attributeDescriptions[1].offset = offsetof(Vertex, color);
+
+        // how we extract texture coords
+        attributeDescriptions[2].binding = 0;
+        attributeDescriptions[2].location = 2;
+        // aka a vec2
+        attributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
+        attributeDescriptions[2].offset = offsetof(Vertex, texCoord);
 
         return attributeDescriptions;
     }
@@ -314,11 +322,11 @@ private:
 
     // our vectors
     const std::vector<Vertex> vertices = {
-        // Position     // Color
-        {{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
-        {{0.5f, -0.5f},  {0.0f, 1.0f, 0.0f}},
-        {{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
-        {{-0.5f, 0.5f}, {1.0f, 1.0f, 0.0f}}
+        // Position      // Color            // Texture Coords
+        {{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
+        {{0.5f, -0.5f},  {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
+        {{0.5f, 0.5f},   {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
+        {{-0.5f, 0.5f},  {1.0f, 1.0f, 0.0f}, {1.0f, 1.0f}}
     };
 
     // essentially an array of pointers to our vertex buffer
@@ -1161,7 +1169,7 @@ private:
         */
         vkCmdPipelineBarrier( // inserts a memory dependency
             commandBuffer,
-            srcStage /* TODO */, dstStage /* TODO */, /* 1. pipeline stage operations that occur before the barrier 2. the pipeline stage in which operations will wait on barrier */
+            srcStage, dstStage, /* 1. pipeline stage operations that occur before the barrier 2. the pipeline stage in which operations will wait on barrier */
             0,
             0, nullptr,
             0, nullptr,
@@ -1426,27 +1434,39 @@ private:
 
         // When the descriptor sets are actually created and allocated they remain largely uninitialized and the descriptors themselves aren't defined
         for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-            // a descriptor that refers to buffers, a descriptor isn't a buffer
+            // a descriptor that refers to buffers, we have to specify some info for our buffer
             VkDescriptorBufferInfo bufferInfo{};
             bufferInfo.buffer = uniformBuffers[i];
             bufferInfo.offset = 0;
             bufferInfo.range = sizeof(UniformBufferObject);
 
-            // we update the config of descriptors using this
-            VkWriteDescriptorSet descriptorWrite{};
-            descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            // which descriptor set to update and the binding to update
-            descriptorWrite.dstSet = descriptorSets[i];
-            descriptorWrite.dstBinding = 0;
-            descriptorWrite.dstArrayElement = 0;
-            // specify the type of the descriptor
-            descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-            descriptorWrite.descriptorCount = 1;
-            descriptorWrite.pBufferInfo = &bufferInfo;
-            descriptorWrite.pImageInfo = nullptr;
-            descriptorWrite.pTexelBufferView = nullptr;
+            // a descriptor that refers to images
+            VkDescriptorImageInfo imageInfo{};
+            imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            imageInfo.imageView = textureImageView;
+            imageInfo.sampler = textureSampler;
 
-            vkUpdateDescriptorSets(device, 1, &descriptorWrite, 0, nullptr);
+            std::array<VkWriteDescriptorSet, 2> descriptorWrites{};
+            // we update the config of descriptors using this
+            descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            // which descriptor set to update and the binding to update
+            descriptorWrites[0].dstSet = descriptorSets[i];
+            descriptorWrites[0].dstBinding = 0;
+            descriptorWrites[0].dstArrayElement = 0;
+            // specify the type of the descriptor
+            descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+            descriptorWrites[0].descriptorCount = 1;
+            descriptorWrites[0].pBufferInfo = &bufferInfo;
+
+            descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            descriptorWrites[1].dstSet = descriptorSets[i];
+            descriptorWrites[1].dstBinding = 1;
+            descriptorWrites[1].dstArrayElement = 0;
+            descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+            descriptorWrites[1].descriptorCount = 1;
+            descriptorWrites[1].pImageInfo = &imageInfo;
+
+            vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
         }
 
     }
