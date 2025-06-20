@@ -20,6 +20,7 @@ Implement picking.
 #define GLFW_INCLUDE_VULKAN
 #define GLM_FORCE_RADIANS
 #define STB_IMAGE_IMPLEMENTATION
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE // will default to -1.0f - 1.0f because it's made for opengl
 #include <stb_image.h>
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
@@ -153,7 +154,7 @@ struct SwapChainSupportDetails {
 struct Vertex {
     // our actual vertex in a 2d space
     // always need this
-    glm::vec2 pos;
+    glm::vec3 pos;
     // an attribute associated with our vertex
     // this is the vertices color attribute
     glm::vec3 color;
@@ -196,7 +197,7 @@ struct Vertex {
         attributeDescriptions[0].location = 0;
         // its represents 2 32 bit integer values (pos.x, pos.y)
         // aka a vec2
-        attributeDescriptions[0].format = VK_FORMAT_R32G32_SFLOAT;
+        attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
         attributeDescriptions[0].offset = offsetof(Vertex, pos);
 
         // how we extract color attribute
@@ -316,24 +317,41 @@ private:
     // sync point between cpu and gpu operations
     std::vector<VkFence> inFlightFences;
 
+    /*
+        just like a color attachment, a depth attachment is based on an image
+        the only difference is that the swap chain will not automatically create depth images for us
+        we only need 1 depth image since we're only doing one draw operation running at a time
+    */
+    VkImage depthImage;
+    VkImageView depthImageView;
+    VkDeviceMemory depthImageMemory;
+
     // this is going to be used to handle resizes explicitly 
     // we'll use this to flag when a resize has occured
     bool framebufferResized = false;
 
     // our vectors
     const std::vector<Vertex> vertices = {
-        // Position      // Color            // Texture Coords
-        {{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
-        {{0.5f, -0.5f},  {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
-        {{0.5f, 0.5f},   {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
-        {{-0.5f, 0.5f},  {1.0f, 1.0f, 0.0f}, {1.0f, 1.0f}}
+        // Position            // Color            // Texture Coords
+        {{-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
+        {{ 0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
+        {{ 0.5f,  0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
+        {{-0.5f,  0.5f, 0.0f}, {1.0f, 1.0f, 0.0f}, {1.0f, 1.0f}},
+        // object 2?
+        {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
+        {{ 0.5f, -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
+        {{ 0.5f,  0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
+        {{-0.5f,  0.5f, -0.5f}, {1.0f, 1.0f, 0.0f}, {1.0f, 1.0f}}
     };
 
     // essentially an array of pointers to our vertex buffer
     // each index will represent a pointer to a vertex
     const std::vector<uint32_t> indices = {
         0, 1, 2,
-        2, 3, 0
+        2, 3, 0,
+
+        4, 5, 6,
+        6, 7, 4
     };
 
     // Initialize GLFW and create a window
@@ -541,7 +559,7 @@ private:
         }
 
         VkPhysicalDeviceFeatures features;
-        vkGetPhysicalDeviceFeatures(physicalDevice, &features);
+        vkGetPhysicalDeviceFeatures(device, &features);
 
         return indices.isComplete() && extensionsSupported && swapChainAdequate && features.samplerAnisotropy;
     }
@@ -894,6 +912,10 @@ private:
         }
     }
 
+    bool hasStencilComponent(VkFormat format) {
+        return format == VK_FORMAT_D32_SFLOAT || format == VK_FORMAT_D24_UNORM_S8_UINT;
+    }
+
     /*
         This is going to be used to combine our memory requirements of the specific buffer we created + our own applications memory to find the right memory type to use
         we do this because our graphics card provides us with different memory types to allocate from that will vary depending on allowed operations and performance characteristics
@@ -939,6 +961,44 @@ private:
         }
 
         throw std::runtime_error("failed to find suitable memory type!");
+    }
+
+    /*
+        Creating a helper function so that we can take a list of formats (which is ordered from least desirable to most desirable) and grab the most desirable (the first one)
+        the support of a format depends on its tiling mode and its usage
+
+        we're finding a suitable image format that meets specific requirements for tiling and feature support
+    */
+    VkFormat findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features) {
+        // for all the formats in our passed format vector
+        for (VkFormat format : candidates) {
+            // get all the properties for each specific format
+            // the props contains linearTilingFeatures, optimalTilingFeatures, bufferFeatures
+            VkFormatProperties props;
+            vkGetPhysicalDeviceFormatProperties(physicalDevice, format, &props);
+
+            // tiling linear is easier for cpu reading and writing but not as much for GPU access
+            if (tiling == VK_IMAGE_TILING_LINEAR && (props.linearTilingFeatures & features) == features) {
+                return format;
+            // tiling optimal is the best for GPU access
+            } else if (tiling == VK_IMAGE_TILING_OPTIMAL && (props.optimalTilingFeatures & features) == features) {
+                return format;
+            }
+        }
+
+        throw std::runtime_error("failed to find supported format!");
+    }
+
+    // we use findSupportedFormat now to find a format with a depth component that supports usage as depth attachment
+    VkFormat findDepthFormat() {
+        return findSupportedFormat(
+            // these are the supported formats for depth buffering
+            // all of these formats contain a depth component
+            {VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT},
+            // for each image format we'll check if each format supports optimal tiling and depth stencil features
+            VK_IMAGE_TILING_OPTIMAL,
+            VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT
+        );
     }
 
     // Helper function to copy from one buffer to another buffer
@@ -998,7 +1058,7 @@ private:
 
         UniformBufferObject ubo{};
         // takes an existing transformation, rotation angle, and rotation axis
-        ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+        ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(45.0f), glm::vec3(0.0f, 0.0f, 1.0f));
         // takes the position of the eye, center position, and up axis
         ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
         // use a perspective projection with a 45 degree fov, aspect ratio, and the near/far view planes
@@ -1014,6 +1074,8 @@ private:
         we got the memory requirements of the image
         we allocated a region of memory on the gpu that suits are memory requirements, memory type, and memory properties we're searching for
         we binded that buffer to that region of memory
+
+        tiling = the arrangement of memory for image ex: R8G8B8
     */
     void createImage(int width, int height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags prop, VkImage& image, VkDeviceMemory& imageMemory) {
         // steps are similar to the creation and allocation of buffers
@@ -1227,7 +1289,7 @@ private:
         endSingleTimeCommands(commandBuffer);
     }
 
-    VkImageView createImageView(VkImage image, VkFormat format) {
+    VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags) {
         VkImageView imageView;
 
         VkImageViewCreateInfo createInfo{};
@@ -1252,7 +1314,7 @@ private:
 
         // The subresourceRange field describes what the image's purpose is and which part of the image should be accessed
         // Our images will be used as color targets without any mipmapping levels or multiple layers
-        createInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        createInfo.subresourceRange.aspectMask = aspectFlags;
         createInfo.subresourceRange.baseMipLevel = 0;
         createInfo.subresourceRange.levelCount = 1;
         createInfo.subresourceRange.baseArrayLayer = 0;
@@ -1281,6 +1343,7 @@ private:
         createGraphicsPipeline();
         createFrameBuffers();
         createCommandPool();
+        createDepthResources();
         createTextureImage();
         createTextureImageView();
         createTextureSampler();
@@ -1291,6 +1354,30 @@ private:
         createDescriptorSets();
         createCommandBuffers();
         createSyncObjects();
+    }
+
+    void createDepthResources() {
+        VkFormat depthFormat = findDepthFormat();
+
+        createImage(
+            swapChainExtent.width,
+            swapChainExtent.height,
+            depthFormat,
+            VK_IMAGE_TILING_OPTIMAL,
+            VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+            depthImage,
+            depthImageMemory
+        );
+
+        // aspectFlags is added because before creating our image view always assumed the image view
+        depthImageView = createImageView(
+            depthImage,
+            depthFormat,
+            VK_IMAGE_ASPECT_DEPTH_BIT
+        );
+
+
     }
 
     /*
@@ -1342,7 +1429,7 @@ private:
     }
 
     void createTextureImageView() {
-        textureImageView = createImageView(textureImage, VK_FORMAT_R8G8B8A8_SRGB);
+        textureImageView = createImageView(textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT);
     }
 
     // Whenever we need to use an image we have to kind of surround it in a vulkan object so we can use in our program
@@ -1350,7 +1437,7 @@ private:
     // A texel is just a pixel of a texture map
     void createTextureImage() {
         int width, height, channels;
-        stbi_uc* pixels = stbi_load("../textures/saladin.jpg", &width, &height, &channels, STBI_rgb_alpha);
+        stbi_uc* pixels = stbi_load("../textures/texture.jpg", &width, &height, &channels, STBI_rgb_alpha);
 
         VkDeviceSize imageSize = width * height * 4;
 
@@ -2190,7 +2277,7 @@ private:
         // Iterate through over all of the swap chain images
         // We're creating an image view for each swap chain image
         for (size_t i = 0; i < swapChainImages.size(); i++) {
-            swapChainImageViews[i] = createImageView(swapChainImages[i], swapChainImageFormat);
+            swapChainImageViews[i] = createImageView(swapChainImages[i], swapChainImageFormat, VK_IMAGE_ASPECT_COLOR_BIT);
         }
     }
 
