@@ -337,11 +337,16 @@ private:
         {{ 0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
         {{ 0.5f,  0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
         {{-0.5f,  0.5f, 0.0f}, {1.0f, 1.0f, 0.0f}, {1.0f, 1.0f}},
-        // object 2?
+        // object 2
         {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
         {{ 0.5f, -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
         {{ 0.5f,  0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
-        {{-0.5f,  0.5f, -0.5f}, {1.0f, 1.0f, 0.0f}, {1.0f, 1.0f}}
+        {{-0.5f,  0.5f, -0.5f}, {1.0f, 1.0f, 0.0f}, {1.0f, 1.0f}},
+        // object 3
+        {{-0.5f, -0.5f, -1.0f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
+        {{ 0.5f, -0.5f, -1.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
+        {{ 0.5f,  0.5f, -1.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
+        {{-0.5f,  0.5f, -1.0f}, {1.0f, 1.0f, 0.0f}, {1.0f, 1.0f}}
     };
 
     // essentially an array of pointers to our vertex buffer
@@ -857,9 +862,12 @@ private:
         renderPassInfo.renderArea.extent = swapChainExtent;
         //  define the clear values to use for VK_ATTACHMENT_LOAD_OP_CLEAR; defined it to be black and 100% opacity
         // background color of application
-        VkClearValue clearColor = {{{ 0.0f, 0.0f, 0.0f, 1.0f}}};
-        renderPassInfo.clearValueCount = 1;
-        renderPassInfo.pClearValues = &clearColor;
+        std::array<VkClearValue, 2> clearValues{};
+        clearValues[0].color = {{0.0f, 0.0f, 0.0f, 1.0f}};
+        clearValues[1].depthStencil = {1.0f, 0};
+        // clear values must be in order of your attachments in swapchain and renderpass
+        renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
+        renderPassInfo.pClearValues = clearValues.data();
 
         // now we can begin our render pass. This is essentially saying that when the command buffer executes start a renderpass with some specific expected settings
         // this is the blueprint for a rendering sequence. since our blueprint expects color attachments this will relate to our draw commands
@@ -1179,6 +1187,7 @@ private:
         // using an image memory barrier 
         // memory barriers are used within the GPU pipeline
         VkImageMemoryBarrier barrier{};
+
         barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
         // specify the actual layout transition
         barrier.oldLayout = oldLayout;
@@ -1198,12 +1207,25 @@ private:
         barrier.srcAccessMask = 0;
         barrier.dstAccessMask = 0;
 
+        // ensure we're using the correct subresource range since it is adhering to texture images (we must check for depth)
+        if (newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
+            barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+
+            if (hasStencilComponent(format)) {
+                barrier.subresourceRange.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
+            }
+        } else {
+            barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        }
+
         VkPipelineStageFlags srcStage; // the pipeline stage where srcAccessMask operations occur
         VkPipelineStageFlags dstStage; // the pipeline stage where dstAccessMask operations occur
 
         // we need to set our srcStageMask and dstStageMask pipeline stage flags depending on what image transition layout we're creating
+        // this first if statement is needed for loading texture data from the buffer, we transition the layout as a transfer destination
         if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
             // barrier configurations
+            // going to be reads and writes
             barrier.srcAccessMask = 0; // no previous accesses occuring before to wait for
             barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT; // once layout transition is complete and specifies the subsequent memory operations that will occur 
 
@@ -1211,12 +1233,19 @@ private:
             dstStage = VK_PIPELINE_STAGE_TRANSFER_BIT; // the stage where data operations occur [ THIS IS A PSEUDO STAGE  WHERE TRANSFERS OCCUR NOT AN ACTUAL ONE IN THE PIPELINE]
         
         // set our source and destination masks to prepare an image between transfer destination layout and shader read only layout
+        // this statement is for once an image data is loaded from a buffer and you need to read it from a shader
         } else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
-            barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-            barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+            barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT; // ensure transfer write operations are complete before attempting to read
+            barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT; // one transition is complete the next operations that will occur are shader reads
 
             srcStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
             dstStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+        } else if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
+            barrier.srcAccessMask = 0;
+            barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+
+            srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+            dstStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
         } else {
             throw std::runtime_error("unsupported layout transition!");
         }
@@ -1231,6 +1260,7 @@ private:
         */
         vkCmdPipelineBarrier( // inserts a memory dependency
             commandBuffer,
+            // define time in the GPU pipeline where synchronization will occur
             srcStage, dstStage, /* 1. pipeline stage operations that occur before the barrier 2. the pipeline stage in which operations will wait on barrier */
             0,
             0, nullptr,
@@ -1341,9 +1371,9 @@ private:
         createRenderPass();
         createDescriptorSetLayout();
         createGraphicsPipeline();
-        createFrameBuffers();
         createCommandPool();
         createDepthResources();
+        createFrameBuffers();
         createTextureImage();
         createTextureImageView();
         createTextureSampler();
@@ -1359,6 +1389,14 @@ private:
     void createDepthResources() {
         VkFormat depthFormat = findDepthFormat();
 
+        /*
+            Some information about images
+
+            image format: the pixel data's structure and interpretation. For each individual texel (R8G8B8A8), 8 bits for red, green, blue, alpha 0.0-1.0
+            image tiling: represents the physical memory arrangement of the entire image data on the GPU, this is set once and remains the same throughout the life of an image
+            image layout: is a more dynamic state an image can be in that can change based on what it's currently prepared for and what type of access is allowed (shader read, transfer destination, color attachment)
+            image usage: purpose the image serves on the pipeline, what the iamge is going to be used for
+        */
         createImage(
             swapChainExtent.width,
             swapChainExtent.height,
@@ -1377,6 +1415,16 @@ private:
             VK_IMAGE_ASPECT_DEPTH_BIT
         );
 
+        /*
+            We don't neeed to explicitly transition the layout of the depth image because we can take care of this in the renderpass
+            will be doing this just for better understanding and practice
+        */
+        transitionImageLayout(
+            depthImage,
+            depthFormat,
+            VK_IMAGE_LAYOUT_UNDEFINED,
+            VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
+        );
 
     }
 
@@ -1885,17 +1933,19 @@ private:
 
         for (int i = 0; i < swapChainImageViews.size(); i++) {
             // the attachment for each swap chain is going to be an image view
-            VkImageView attachments[] = {
-                swapChainImageViews[i]
+            std::array<VkImageView, 2> attachments = {
+                swapChainImageViews[i],
+                depthImageView
             };
 
             VkFramebufferCreateInfo framebufferInfo{};
             framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
             framebufferInfo.renderPass = renderPass;
-            framebufferInfo.attachmentCount = 1;
-            framebufferInfo.pAttachments = attachments;
+            framebufferInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
+            framebufferInfo.pAttachments = attachments.data();
             framebufferInfo.width = swapChainExtent.width;
             framebufferInfo.height = swapChainExtent.height;
+            framebufferInfo.layers = 1;
 
             if (vkCreateFramebuffer(device, &framebufferInfo, nullptr, &swapChainFramebuffers[i]) != VK_SUCCESS) {
                 throw std::runtime_error("failed to create framebuffer!");
@@ -1936,6 +1986,7 @@ private:
         colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED; // layout before rendering pass begins
         // image layout that's most optimal for presentaiton
         colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR; // layout to automatically transition to after
+
         /*
             A single render pass can consist of multiple sub passes
             subpasses are a subsequent rendering operations that depend on the contents of framebuffers from previous renderpasses
@@ -1950,6 +2001,26 @@ private:
         // specifies which layout we want the attachment to have during a subpass that uses this reference
         // we intend to use the attachment to function as a color buffer and this layout will give us the best performance, as its name implies
         colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+        // depth attachment
+        VkAttachmentDescription depthAttachment{};
+        depthAttachment.format = findDepthFormat();
+        depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+        depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+        depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+        depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+        depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+        depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+        // ref to depth attachment
+        VkAttachmentReference depthAttachmentRef{};
+        depthAttachmentRef.attachment = 1;
+        depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+        // array with our attachments
+        std::array<VkAttachmentDescription, 2> attachments = { colorAttachment, depthAttachment };
+
         /*
             Now for the creation of the subpass itself, this is made clear to be a graphics subpass
             automatically take care of image layout transitions (the layout that within our shaders)
@@ -1960,14 +2031,7 @@ private:
         subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
         subpass.colorAttachmentCount = 1;
         subpass.pColorAttachments = &colorAttachmentRef;
-
-        // Now onto creating our actual render pass
-        VkRenderPassCreateInfo renderPassInfo{};
-        renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-        renderPassInfo.attachmentCount = 1;
-        renderPassInfo.pAttachments = &colorAttachment;
-        renderPassInfo.subpassCount = 1;
-        renderPassInfo.pSubpasses = &subpass;
+        subpass.pDepthStencilAttachment = &depthAttachmentRef; // a subpass can only use a single depth stencil attachment
 
         /*
             The layout transitions are controlled by subpass dependencies which specify memory and execution dependencies between subpasses
@@ -1979,7 +2043,23 @@ private:
             there are 2 ways to handle it, either change the wait stage in the submit info function or we can make the render pass wait for the VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT stage
             the 2nd option is what we'll do here
         */
-        VkSubpassDependency dependency{};
+       VkSubpassDependency dependency{};
+
+        // Now onto creating our actual render pass
+        VkRenderPassCreateInfo renderPassInfo{};
+        renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+        renderPassInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
+        renderPassInfo.pAttachments = attachments.data();
+        renderPassInfo.subpassCount = 1;
+        renderPassInfo.pSubpasses = &subpass;
+        renderPassInfo.dependencyCount = 1;
+        renderPassInfo.pDependencies = &dependency;
+
+        // updating the dependency to refer to both attachments
+        dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+        dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+        dependency.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+
         /*
             specify the indices of the dependency and the dependent subpass
             VK_SUBPASS_EXTERNAL refers to the implicit subpass before or after the render pass depending on whether it is specified in srcSubpass or dstSubpass
@@ -2189,6 +2269,22 @@ private:
         multisampling.pSampleMask = nullptr;
         multisampling.alphaToCoverageEnable = VK_FALSE;
         multisampling.alphaToOneEnable = VK_FALSE;
+        
+        // for depth buffering and stencil state
+        VkPipelineDepthStencilStateCreateInfo depthStencil{};
+        depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+        // if the depth of the new fragments should be compared to the depth buffer to see if they sohuld be discard
+        depthStencil.depthTestEnable = VK_TRUE;
+        // if the new depth of fragments that pass the depth test should actually be written to the depth buffer
+        depthStencil.depthWriteEnable = VK_TRUE;
+        // specifies the comparisn that is performed to keep or discard fragments
+        // in our case we stick with lower depth = closer so depth of new fragments should be less
+        depthStencil.depthCompareOp = VK_COMPARE_OP_LESS;
+        // used for optional depth bound testing
+        // allows you to only keep fragments that fall within specific depth range
+        depthStencil.depthBoundsTestEnable = VK_FALSE;
+        depthStencil.minDepthBounds = 0.0f;
+        depthStencil.maxDepthBounds = 1.0f;
 
         /*
             After a frag shader has returned a color, it must be combined with a color that's already in the framebuffer
@@ -2247,7 +2343,7 @@ private:
         pipelineInfo.pViewportState = &viewportState;
         pipelineInfo.pRasterizationState = &rasterizer;
         pipelineInfo.pMultisampleState = &multisampling;
-        pipelineInfo.pDepthStencilState = nullptr;
+        pipelineInfo.pDepthStencilState = &depthStencil;
         pipelineInfo.pColorBlendState = &colorBlending;
         pipelineInfo.pDynamicState = &dynamicState;
         // Then we get our pipeline layout
@@ -2282,6 +2378,10 @@ private:
     }
 
     void cleanupSwapChain() {
+        vkDestroyImageView(device, depthImageView, nullptr);
+        vkDestroyImage(device, depthImage, nullptr);
+        vkFreeMemory(device, depthImageMemory, nullptr);
+
         for (auto framebuffer : swapChainFramebuffers) {
             vkDestroyFramebuffer(device, framebuffer, nullptr);
         }
@@ -2313,6 +2413,7 @@ private:
         createSwapChain();
         // image views will have to be recreated because they are based on our swap chain images
         createImageViews();
+        createDepthResources();
         // frame buffers directly depend on the swapchain 
         // we don't recreate the framebuffer for simplicity but we don't since there isn't a chance of the image format to change
         createFrameBuffers();
@@ -2351,6 +2452,7 @@ private:
         createInfo.imageArrayLayers = 1;
         // Specifies what kind of operations we'll use the images in the swap chain for
         // Since we're rendering directly to them in this tutorial, we'll be usinng them as a color attachment
+        // this is what differentiates how an image is used in our program
         createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT; // Could use VK_IMAGE_USAGE_TRANSFER_DST_BIT instead if you wanted it rendered to a separate file for post processing
 
         QueueFamilyIndices indices = findQueueFamilies(physicalDevice);
