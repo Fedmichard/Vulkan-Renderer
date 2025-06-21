@@ -59,6 +59,9 @@ uint32_t currentFrame = 0;
 const uint32_t WIDTH = 800;
 const uint32_t HEIGHT = 600;
 
+const std::string MODEL_PATH = "../models/viking_room.obj";
+const std::string MODEL_TEXTURE = "../textures/viking_room.png";
+
 // After the vector is initialized you cannot modify the vector itself
 // It's an array of C-style string literals, text in quotation marks that are unchangeable
 // VK_LAYER_KHRONOS_validation is the standard library included in lunarg vulkan SDK
@@ -1485,7 +1488,7 @@ private:
     // A texel is just a pixel of a texture map
     void createTextureImage() {
         int width, height, channels;
-        stbi_uc* pixels = stbi_load("../textures/texture.jpg", &width, &height, &channels, STBI_rgb_alpha);
+        stbi_uc* pixels = stbi_load(MODEL_TEXTURE.c_str(), &width, &height, &channels, STBI_rgb_alpha);
 
         VkDeviceSize imageSize = width * height * 4;
 
@@ -1923,10 +1926,15 @@ private:
         }
     }
 
-    // Now we can create our framebuffers
-    // Framebuffer just represents a single instance of a rendering target, in our case it'll be an instance of an image and some of it's information
-    // Think of the renderpass as a recipe and the framebuffer as the tools needed to create our recipe (which is our iamge in this case)
-    // it's a specific instatiation of a renderpass attachment, in our case it's our vkimageviews
+    /*
+        Now we can create our framebuffers
+        Framebuffer just represents a single instance of a rendering target, in our case it'll be an instance of an image and some of it's information
+        Think of the renderpass as a recipe and the framebuffer as the tools needed to create our recipe (which is our iamge in this case)
+        it's a specific instatiation of a renderpass attachment, in our case it's our vkimageviews
+
+        it represents a specific instance of all the attachments for a renderpass, in our case it's a collection of image views that is bound to an abstract slot we defined
+        holds the specific image views that will be used as rendering targets for an instance of a renderpass
+    */
     void createFrameBuffers() {
         // first we must resize our framebuffer vector by the size of our vkImageViews
         swapChainFramebuffers.resize(swapChainImageViews.size());
@@ -2271,6 +2279,7 @@ private:
         multisampling.alphaToOneEnable = VK_FALSE;
         
         // for depth buffering and stencil state
+        // we're enabling depth testing here and the pipeline itself will automatically determine which parts of a shape will be visible
         VkPipelineDepthStencilStateCreateInfo depthStencil{};
         depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
         // if the depth of the new fragments should be compared to the depth buffer to see if they sohuld be discard
