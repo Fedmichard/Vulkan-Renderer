@@ -21,6 +21,10 @@ Implement picking.
 #define GLM_FORCE_RADIANS
 #define STB_IMAGE_IMPLEMENTATION
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE // will default to -1.0f - 1.0f because it's made for opengl
+#define TINYOBJLOADER_IMPLEMENTATION
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/hash.hpp>
+#include <tiny_obj_loader.h>
 #include <stb_image.h>
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
@@ -33,6 +37,7 @@ Implement picking.
 #include <array>
 #include <vector>
 #include <map>
+#include <unordered_map>
 #include <limits>
 #include <algorithm>
 #include <set>
@@ -163,6 +168,7 @@ struct Vertex {
     glm::vec3 color;
     // attribute associated with the textures
     glm::vec2 texCoord;
+
     /*
         the next step would be telling vulkan how to pass this data format to the vertex data when we pass it into gpu memory
         a vertex binding describes the rate to load data from memory throughout vertices
@@ -219,7 +225,20 @@ struct Vertex {
 
         return attributeDescriptions;
     }
+
+    // operator overloading
+    bool operator==(const Vertex& other) const {
+        return pos == other.pos && color == other.color && texCoord == other.texCoord;
+    }
 };
+
+namespace std {
+    template<> struct hash<Vertex> {
+        size_t operator()(Vertex const& vertex) const {
+            return ((hash<glm::vec3>()(vertex.pos) ^ (hash<glm::vec3>()(vertex.color) << 1)) >> 1) ^ (hash<glm::vec2>()(vertex.texCoord) << 1);
+        }
+    };
+}
 
 // uniform buffer object for our camera since we're going into 3D now
 struct UniformBufferObject {
@@ -361,6 +380,14 @@ private:
         4, 5, 6,
         6, 7, 4
     };
+
+    // model data
+    std::vector<Vertex> modelVertices;
+    std::vector<uint32_t> modelIndices;
+    VkBuffer modelVertexBuffer;
+    VkDeviceMemory modelVertexMemory;
+    VkBuffer modelIndexBuffer;
+    VkDeviceMemory modelIndexMemory;
 
     // Initialize GLFW and create a window
     void initWindow() {
@@ -884,11 +911,13 @@ private:
 
             // now we telling vulkan to bind these vertex buffers to the pipeline essentially
             // since our pipeline is already expecting data from a vertex buffer, when your passing cmds to gpu it'll know to read data from the buffer identified by vertexBuffer
-            VkBuffer vertexBuffers[] = { vertexBuffer };
+            // VkBuffer vertexBuffers[] = { vertexBuffer }; -- CHANGE LATER
+            VkBuffer vertexBuffers[] = { modelVertexBuffer };
             VkDeviceSize offsets[] = { 0 };
             vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
 
-            vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+            // vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32); -- CHANGE LATER
+            vkCmdBindIndexBuffer(commandBuffer, modelIndexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
             // descriptor sets aren't unique to graphics pipelines so we need to specify a binding point
             vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[currentFrame], 0, nullptr);
@@ -910,7 +939,7 @@ private:
 
             // will use this to draw from index buffer
             // while this is the exact draw command, you're essentially telling the gpu for this draw command use the exact configuration for every stage of the rendering process from the pipeline once binded
-            vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
+            vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(modelIndices.size()), 1, 0, 0, 0);
             // now we're ready to issue the draw command for the triangle
             // 3rd param is used for instance rendering but we're not doing that so say 1
             // vkCmdDraw(commandBuffer, static_cast<uint32_t>(vertices.size()), 1, 0, 0); -- originally used to draw from vertex buffer
@@ -1069,7 +1098,7 @@ private:
 
         UniformBufferObject ubo{};
         // takes an existing transformation, rotation angle, and rotation axis
-        ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(45.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+        ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
         // takes the position of the eye, center position, and up axis
         ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
         // use a perspective projection with a 45 degree fov, aspect ratio, and the near/far view planes
@@ -1380,13 +1409,111 @@ private:
         createTextureImage();
         createTextureImageView();
         createTextureSampler();
+        loadModel();
         createVertexBuffer();
         createIndexBuffer();
+        createModelVertexBuffer();
+        createModelIndexBuffer();
         createUniformBuffers();
         createDescriptorPool();
         createDescriptorSets();
         createCommandBuffers();
         createSyncObjects();
+    }
+
+    
+    void createModelVertexBuffer() {
+        VkDeviceSize size = sizeof(modelVertices[0]) * modelVertices.size();
+        VkBuffer stagingBuffer;
+        VkDeviceMemory stagingBufferMemory;
+
+        createBuffer(size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBufferMemory, stagingBuffer);
+
+        // now that we create the buffer, how is the data going to get in there?
+        // we looked for those memory properties on purpose now we can copy our modelVertices into the buffer
+        void* data;
+        vkMapMemory(device, stagingBufferMemory, 0, size, 0, &data);
+        memcpy(data, modelVertices.data(), (size_t) size);
+        vkUnmapMemory(device, stagingBufferMemory);
+
+        createBuffer(size, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, modelVertexMemory, modelVertexBuffer);
+
+        copyBuffer(stagingBuffer, modelVertexBuffer, size);
+
+        vkDestroyBuffer(device, stagingBuffer, nullptr);
+        vkFreeMemory(device, stagingBufferMemory, nullptr);
+    }
+
+    void createModelIndexBuffer() {
+        VkDeviceSize size = sizeof(modelIndices[0]) * modelIndices.size();
+        VkBuffer stagingBuffer;
+        VkDeviceMemory stagingBufferMemory;
+
+        // host since it's supposed to be accessible by the host
+        createBuffer(size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBufferMemory, stagingBuffer);
+
+        void* data;
+        vkMapMemory(device, stagingBufferMemory, 0, size, 0, &data);
+        memcpy(data, modelIndices.data(), (size_t) size);
+        vkUnmapMemory(device, stagingBufferMemory);
+
+        createBuffer(size, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, modelIndexMemory, modelIndexBuffer);
+
+        copyBuffer(stagingBuffer, modelIndexBuffer, size);
+
+        vkDestroyBuffer(device, stagingBuffer, nullptr);
+        vkFreeMemory(device, stagingBufferMemory, nullptr);
+    }
+
+    void loadModel() {
+        // holds all the vertices, normals, and texture coordinates
+        tinyobj::attrib_t attrib;
+        // contains all the separate objects and their faces
+        // each face has an array of vertices and each vertex contains the indicies of the position, normal, and texture coord attribs
+        std::vector<tinyobj::shape_t> shapes;
+        std::vector<tinyobj::material_t> materials;
+        std::string warn, err;
+
+        if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, MODEL_PATH.c_str())) {
+            throw std::runtime_error(warn + err);
+        }
+
+        std::unordered_map<Vertex, uint32_t> uniqueVertices{};
+
+        // we're going to combine all of the faces in the file into a single model, so we'll iterate through em all
+        for (const auto& shape : shapes) {
+            for (const auto& index : shape.mesh.indices) {
+                Vertex vertex{};
+
+                // attrib.vertices are float values instead of vec3 so you multiply it by 3 and 0, 1, 2 accesses the specific x, y, z
+                vertex.pos = {
+                    attrib.vertices[3 * index.vertex_index + 0],
+                    attrib.vertices[3 * index.vertex_index + 1],
+                    attrib.vertices[3 * index.vertex_index + 2]
+                };
+
+                /*
+                    OBJ format assumes a coordinate system where the vertical coordinate of 0 means the bottom of an iamge
+                    since we uplaoded our image into vulkan in a top to bottom orientation, 0 means the top of an image
+                    so we must flip our y or vertical coordinate
+                */
+                vertex.texCoord = {
+                    // x
+                    attrib.texcoords[2 * index.texcoord_index + 0],
+                    // y
+                    1.0f - attrib.texcoords[2 * index.texcoord_index + 1]
+                };
+
+                vertex.color = { 1.0f, 1.0f, 1.0f };
+
+                if (uniqueVertices.count(vertex) == 0) {
+                    uniqueVertices[vertex] = static_cast<uint32_t>(modelVertices.size());
+                    modelVertices.push_back(vertex);
+                }
+
+                modelIndices.push_back(uniqueVertices[vertex]);
+            }
+        }
     }
 
     void createDepthResources() {
@@ -1934,6 +2061,8 @@ private:
 
         it represents a specific instance of all the attachments for a renderpass, in our case it's a collection of image views that is bound to an abstract slot we defined
         holds the specific image views that will be used as rendering targets for an instance of a renderpass
+
+        when you execute some rendering commands in a command buffer and you begin a renderpass, the renderpass serves as your blueprint and the framebuffer represents the specific set of attachments to draw into
     */
     void createFrameBuffers() {
         // first we must resize our framebuffer vector by the size of our vkImageViews
@@ -1971,6 +2100,7 @@ private:
         how they'll be loaded and stored, and any synchronization dependencies between subpasses
 
         THINK OF IT AS A BLUEPRINT FOR THE VULKAN OF A SEQUENCE OF OPERATIONS AND HOW THEY'LL INTERACT WITH AN IMAGE
+        a blueprint that defines the structure of your rendering operations with subpasses and subpass dependencies that will interact with an image as well as the attachments that will be used
     */
     void createRenderPass() {
         // in our case we'll have just a single color buffer attachment represented by one of the images from the swap chain

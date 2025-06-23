@@ -4,6 +4,7 @@
 CMakeFiles/vukan-renderer.dir/src/main.cpp.obj
  C:/Users/franc/Documents/Personal_Projects/Vulkan-Renderer/src/main.cpp
  C:/Users/franc/Documents/Personal_Projects/Vulkan-Renderer/includes/stb_image.h
+ C:/Users/franc/Documents/Personal_Projects/Vulkan-Renderer/includes/tiny_obj_loader.h
  C:/Users/franc/Documents/Personal_Projects/Vulkan-Renderer/libraries/GLFW/include/GLFW/glfw3.h
  C:/VulkanSDK/1.4.309.0/Include/glm/common.hpp
  C:/VulkanSDK/1.4.309.0/Include/glm/detail/_fixes.hpp
@@ -20,6 +21,7 @@ CMakeFiles/vukan-renderer.dir/src/main.cpp.obj
  C:/VulkanSDK/1.4.309.0/Include/glm/detail/func_vector_relational.inl
  C:/VulkanSDK/1.4.309.0/Include/glm/detail/qualifier.hpp
  C:/VulkanSDK/1.4.309.0/Include/glm/detail/setup.hpp
+ C:/VulkanSDK/1.4.309.0/Include/glm/detail/type_float.hpp
  C:/VulkanSDK/1.4.309.0/Include/glm/detail/type_half.hpp
  C:/VulkanSDK/1.4.309.0/Include/glm/detail/type_half.inl
  C:/VulkanSDK/1.4.309.0/Include/glm/detail/type_mat2x2.hpp
@@ -40,6 +42,8 @@ CMakeFiles/vukan-renderer.dir/src/main.cpp.obj
  C:/VulkanSDK/1.4.309.0/Include/glm/detail/type_mat4x3.inl
  C:/VulkanSDK/1.4.309.0/Include/glm/detail/type_mat4x4.hpp
  C:/VulkanSDK/1.4.309.0/Include/glm/detail/type_mat4x4.inl
+ C:/VulkanSDK/1.4.309.0/Include/glm/detail/type_quat.hpp
+ C:/VulkanSDK/1.4.309.0/Include/glm/detail/type_quat.inl
  C:/VulkanSDK/1.4.309.0/Include/glm/detail/type_vec1.hpp
  C:/VulkanSDK/1.4.309.0/Include/glm/detail/type_vec1.inl
  C:/VulkanSDK/1.4.309.0/Include/glm/detail/type_vec2.hpp
@@ -91,34 +95,60 @@ CMakeFiles/vukan-renderer.dir/src/main.cpp.obj
  C:/VulkanSDK/1.4.309.0/Include/glm/ext/matrix_projection.inl
  C:/VulkanSDK/1.4.309.0/Include/glm/ext/matrix_transform.hpp
  C:/VulkanSDK/1.4.309.0/Include/glm/ext/matrix_transform.inl
+ C:/VulkanSDK/1.4.309.0/Include/glm/ext/quaternion_common.hpp
+ C:/VulkanSDK/1.4.309.0/Include/glm/ext/quaternion_common.inl
+ C:/VulkanSDK/1.4.309.0/Include/glm/ext/quaternion_double.hpp
+ C:/VulkanSDK/1.4.309.0/Include/glm/ext/quaternion_double_precision.hpp
+ C:/VulkanSDK/1.4.309.0/Include/glm/ext/quaternion_float.hpp
+ C:/VulkanSDK/1.4.309.0/Include/glm/ext/quaternion_float_precision.hpp
+ C:/VulkanSDK/1.4.309.0/Include/glm/ext/quaternion_geometric.hpp
+ C:/VulkanSDK/1.4.309.0/Include/glm/ext/quaternion_geometric.inl
+ C:/VulkanSDK/1.4.309.0/Include/glm/ext/quaternion_relational.hpp
+ C:/VulkanSDK/1.4.309.0/Include/glm/ext/quaternion_relational.inl
+ C:/VulkanSDK/1.4.309.0/Include/glm/ext/quaternion_transform.hpp
+ C:/VulkanSDK/1.4.309.0/Include/glm/ext/quaternion_transform.inl
+ C:/VulkanSDK/1.4.309.0/Include/glm/ext/quaternion_trigonometric.hpp
+ C:/VulkanSDK/1.4.309.0/Include/glm/ext/quaternion_trigonometric.inl
  C:/VulkanSDK/1.4.309.0/Include/glm/ext/scalar_constants.hpp
  C:/VulkanSDK/1.4.309.0/Include/glm/ext/scalar_constants.inl
  C:/VulkanSDK/1.4.309.0/Include/glm/ext/scalar_int_sized.hpp
  C:/VulkanSDK/1.4.309.0/Include/glm/ext/scalar_uint_sized.hpp
+ C:/VulkanSDK/1.4.309.0/Include/glm/ext/vector_bool1.hpp
+ C:/VulkanSDK/1.4.309.0/Include/glm/ext/vector_bool1_precision.hpp
  C:/VulkanSDK/1.4.309.0/Include/glm/ext/vector_bool2.hpp
  C:/VulkanSDK/1.4.309.0/Include/glm/ext/vector_bool2_precision.hpp
  C:/VulkanSDK/1.4.309.0/Include/glm/ext/vector_bool3.hpp
  C:/VulkanSDK/1.4.309.0/Include/glm/ext/vector_bool3_precision.hpp
  C:/VulkanSDK/1.4.309.0/Include/glm/ext/vector_bool4.hpp
  C:/VulkanSDK/1.4.309.0/Include/glm/ext/vector_bool4_precision.hpp
+ C:/VulkanSDK/1.4.309.0/Include/glm/ext/vector_double1.hpp
+ C:/VulkanSDK/1.4.309.0/Include/glm/ext/vector_double1_precision.hpp
  C:/VulkanSDK/1.4.309.0/Include/glm/ext/vector_double2.hpp
  C:/VulkanSDK/1.4.309.0/Include/glm/ext/vector_double2_precision.hpp
  C:/VulkanSDK/1.4.309.0/Include/glm/ext/vector_double3.hpp
  C:/VulkanSDK/1.4.309.0/Include/glm/ext/vector_double3_precision.hpp
  C:/VulkanSDK/1.4.309.0/Include/glm/ext/vector_double4.hpp
  C:/VulkanSDK/1.4.309.0/Include/glm/ext/vector_double4_precision.hpp
+ C:/VulkanSDK/1.4.309.0/Include/glm/ext/vector_float1.hpp
+ C:/VulkanSDK/1.4.309.0/Include/glm/ext/vector_float1_precision.hpp
  C:/VulkanSDK/1.4.309.0/Include/glm/ext/vector_float2.hpp
  C:/VulkanSDK/1.4.309.0/Include/glm/ext/vector_float2_precision.hpp
  C:/VulkanSDK/1.4.309.0/Include/glm/ext/vector_float3.hpp
  C:/VulkanSDK/1.4.309.0/Include/glm/ext/vector_float3_precision.hpp
  C:/VulkanSDK/1.4.309.0/Include/glm/ext/vector_float4.hpp
  C:/VulkanSDK/1.4.309.0/Include/glm/ext/vector_float4_precision.hpp
+ C:/VulkanSDK/1.4.309.0/Include/glm/ext/vector_int1.hpp
+ C:/VulkanSDK/1.4.309.0/Include/glm/ext/vector_int1_sized.hpp
  C:/VulkanSDK/1.4.309.0/Include/glm/ext/vector_int2.hpp
  C:/VulkanSDK/1.4.309.0/Include/glm/ext/vector_int2_sized.hpp
  C:/VulkanSDK/1.4.309.0/Include/glm/ext/vector_int3.hpp
  C:/VulkanSDK/1.4.309.0/Include/glm/ext/vector_int3_sized.hpp
  C:/VulkanSDK/1.4.309.0/Include/glm/ext/vector_int4.hpp
  C:/VulkanSDK/1.4.309.0/Include/glm/ext/vector_int4_sized.hpp
+ C:/VulkanSDK/1.4.309.0/Include/glm/ext/vector_relational.hpp
+ C:/VulkanSDK/1.4.309.0/Include/glm/ext/vector_relational.inl
+ C:/VulkanSDK/1.4.309.0/Include/glm/ext/vector_uint1.hpp
+ C:/VulkanSDK/1.4.309.0/Include/glm/ext/vector_uint1_sized.hpp
  C:/VulkanSDK/1.4.309.0/Include/glm/ext/vector_uint2.hpp
  C:/VulkanSDK/1.4.309.0/Include/glm/ext/vector_uint2_sized.hpp
  C:/VulkanSDK/1.4.309.0/Include/glm/ext/vector_uint3.hpp
@@ -130,8 +160,17 @@ CMakeFiles/vukan-renderer.dir/src/main.cpp.obj
  C:/VulkanSDK/1.4.309.0/Include/glm/glm.hpp
  C:/VulkanSDK/1.4.309.0/Include/glm/gtc/constants.hpp
  C:/VulkanSDK/1.4.309.0/Include/glm/gtc/constants.inl
+ C:/VulkanSDK/1.4.309.0/Include/glm/gtc/epsilon.hpp
+ C:/VulkanSDK/1.4.309.0/Include/glm/gtc/epsilon.inl
  C:/VulkanSDK/1.4.309.0/Include/glm/gtc/matrix_transform.hpp
  C:/VulkanSDK/1.4.309.0/Include/glm/gtc/matrix_transform.inl
+ C:/VulkanSDK/1.4.309.0/Include/glm/gtc/quaternion.hpp
+ C:/VulkanSDK/1.4.309.0/Include/glm/gtc/quaternion.inl
+ C:/VulkanSDK/1.4.309.0/Include/glm/gtc/vec1.hpp
+ C:/VulkanSDK/1.4.309.0/Include/glm/gtx/dual_quaternion.hpp
+ C:/VulkanSDK/1.4.309.0/Include/glm/gtx/dual_quaternion.inl
+ C:/VulkanSDK/1.4.309.0/Include/glm/gtx/hash.hpp
+ C:/VulkanSDK/1.4.309.0/Include/glm/gtx/hash.inl
  C:/VulkanSDK/1.4.309.0/Include/glm/integer.hpp
  C:/VulkanSDK/1.4.309.0/Include/glm/mat2x2.hpp
  C:/VulkanSDK/1.4.309.0/Include/glm/mat2x3.hpp
@@ -200,6 +239,8 @@ CMakeFiles/vukan-renderer.dir/src/main.cpp.obj
  C:/msys64/mingw64/include/c++/14.1.0/bits/functexcept.h
  C:/msys64/mingw64/include/c++/14.1.0/bits/functional_hash.h
  C:/msys64/mingw64/include/c++/14.1.0/bits/hash_bytes.h
+ C:/msys64/mingw64/include/c++/14.1.0/bits/hashtable.h
+ C:/msys64/mingw64/include/c++/14.1.0/bits/hashtable_policy.h
  C:/msys64/mingw64/include/c++/14.1.0/bits/invoke.h
  C:/msys64/mingw64/include/c++/14.1.0/bits/ios_base.h
  C:/msys64/mingw64/include/c++/14.1.0/bits/istream.tcc
@@ -224,7 +265,9 @@ CMakeFiles/vukan-renderer.dir/src/main.cpp.obj
  C:/msys64/mingw64/include/c++/14.1.0/bits/refwrap.h
  C:/msys64/mingw64/include/c++/14.1.0/bits/requires_hosted.h
  C:/msys64/mingw64/include/c++/14.1.0/bits/specfun.h
+ C:/msys64/mingw64/include/c++/14.1.0/bits/sstream.tcc
  C:/msys64/mingw64/include/c++/14.1.0/bits/std_abs.h
+ C:/msys64/mingw64/include/c++/14.1.0/bits/std_function.h
  C:/msys64/mingw64/include/c++/14.1.0/bits/stl_algo.h
  C:/msys64/mingw64/include/c++/14.1.0/bits/stl_algobase.h
  C:/msys64/mingw64/include/c++/14.1.0/bits/stl_bvector.h
@@ -238,6 +281,7 @@ CMakeFiles/vukan-renderer.dir/src/main.cpp.obj
  C:/msys64/mingw64/include/c++/14.1.0/bits/stl_multimap.h
  C:/msys64/mingw64/include/c++/14.1.0/bits/stl_multiset.h
  C:/msys64/mingw64/include/c++/14.1.0/bits/stl_pair.h
+ C:/msys64/mingw64/include/c++/14.1.0/bits/stl_relops.h
  C:/msys64/mingw64/include/c++/14.1.0/bits/stl_set.h
  C:/msys64/mingw64/include/c++/14.1.0/bits/stl_tempbuf.h
  C:/msys64/mingw64/include/c++/14.1.0/bits/stl_tree.h
@@ -248,6 +292,7 @@ CMakeFiles/vukan-renderer.dir/src/main.cpp.obj
  C:/msys64/mingw64/include/c++/14.1.0/bits/string_view.tcc
  C:/msys64/mingw64/include/c++/14.1.0/bits/stringfwd.h
  C:/msys64/mingw64/include/c++/14.1.0/bits/uniform_int_dist.h
+ C:/msys64/mingw64/include/c++/14.1.0/bits/unordered_map.h
  C:/msys64/mingw64/include/c++/14.1.0/bits/uses_allocator.h
  C:/msys64/mingw64/include/c++/14.1.0/bits/uses_allocator_args.h
  C:/msys64/mingw64/include/c++/14.1.0/bits/utility.h
@@ -281,6 +326,7 @@ CMakeFiles/vukan-renderer.dir/src/main.cpp.obj
  C:/msys64/mingw64/include/c++/14.1.0/ext/string_conversions.h
  C:/msys64/mingw64/include/c++/14.1.0/ext/type_traits.h
  C:/msys64/mingw64/include/c++/14.1.0/fstream
+ C:/msys64/mingw64/include/c++/14.1.0/functional
  C:/msys64/mingw64/include/c++/14.1.0/initializer_list
  C:/msys64/mingw64/include/c++/14.1.0/ios
  C:/msys64/mingw64/include/c++/14.1.0/iosfwd
@@ -297,6 +343,7 @@ CMakeFiles/vukan-renderer.dir/src/main.cpp.obj
  C:/msys64/mingw64/include/c++/14.1.0/pstl/pstl_config.h
  C:/msys64/mingw64/include/c++/14.1.0/ratio
  C:/msys64/mingw64/include/c++/14.1.0/set
+ C:/msys64/mingw64/include/c++/14.1.0/sstream
  C:/msys64/mingw64/include/c++/14.1.0/stdexcept
  C:/msys64/mingw64/include/c++/14.1.0/stdlib.h
  C:/msys64/mingw64/include/c++/14.1.0/streambuf
@@ -318,6 +365,8 @@ CMakeFiles/vukan-renderer.dir/src/main.cpp.obj
  C:/msys64/mingw64/include/c++/14.1.0/tuple
  C:/msys64/mingw64/include/c++/14.1.0/type_traits
  C:/msys64/mingw64/include/c++/14.1.0/typeinfo
+ C:/msys64/mingw64/include/c++/14.1.0/unordered_map
+ C:/msys64/mingw64/include/c++/14.1.0/utility
  C:/msys64/mingw64/include/c++/14.1.0/vector
  C:/msys64/mingw64/include/c++/14.1.0/x86_64-w64-mingw32/bits/atomic_word.h
  C:/msys64/mingw64/include/c++/14.1.0/x86_64-w64-mingw32/bits/basic_file.h
