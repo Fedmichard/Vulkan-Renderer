@@ -273,6 +273,7 @@ private:
     VkQueue presentQueue;
 
     // texture image
+    uint32_t mipLevels;
     VkImage textureImage;
     VkImageView textureImageView;
     VkSampler textureSampler;
@@ -1117,10 +1118,11 @@ private:
 
         tiling = the arrangement of memory for image ex: R8G8B8
     */
-    void createImage(int width, int height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags prop, VkImage& image, VkDeviceMemory& imageMemory) {
+    void createImage(uint32_t width, uint32_t height, uint32_t mipLevels, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags prop, VkImage& image, VkDeviceMemory& imageMemory) {
         // steps are similar to the creation and allocation of buffers
         // now we'll create the image itself
-        VkImageCreateInfo imageInfo{};
+        VkImageCreateInfo imageInfo{}; 
+        imageInfo.mipLevels = mipLevels;
         imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
         imageInfo.imageType = VK_IMAGE_TYPE_2D;
         imageInfo.extent.width = static_cast<uint32_t>(width);
@@ -1212,7 +1214,7 @@ private:
         ensures that memory operations are ordered and visible across different parts of the GPU pipeline
         or it ensures cpu to gpu operations for specific memory regions
     */
-    void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout) {
+    void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevels) {
         // a layout transition is a command you run into a command buffer
         VkCommandBuffer commandBuffer = beginSingleTimeCommands();
 
@@ -1231,6 +1233,7 @@ private:
         // our image isn't an array and doesn't have mipmapping levels so only one level and layer are specified
         barrier.image = image;
         barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        barrier.subresourceRange.levelCount = mipLevels;
         barrier.subresourceRange.baseMipLevel = 0;
         barrier.subresourceRange.levelCount = 1;
         barrier.subresourceRange.baseArrayLayer = 0;
@@ -1351,13 +1354,13 @@ private:
         endSingleTimeCommands(commandBuffer);
     }
 
-    VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags) {
+    VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels) {
         VkImageView imageView;
 
         VkImageViewCreateInfo createInfo{};
         createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
         createInfo.image = image;
-
+        createInfo.subresourceRange.levelCount = mipLevels;
         // The view type and format specify how image data should be interpreted
         // view type param allows you to treat images as 1D textures, 2D textures, 3D textures
         createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
@@ -1530,6 +1533,7 @@ private:
         createImage(
             swapChainExtent.width,
             swapChainExtent.height,
+            1,
             depthFormat,
             VK_IMAGE_TILING_OPTIMAL,
             VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
@@ -1542,7 +1546,8 @@ private:
         depthImageView = createImageView(
             depthImage,
             depthFormat,
-            VK_IMAGE_ASPECT_DEPTH_BIT
+            VK_IMAGE_ASPECT_DEPTH_BIT,
+            1
         );
 
         /*
@@ -1553,7 +1558,8 @@ private:
             depthImage,
             depthFormat,
             VK_IMAGE_LAYOUT_UNDEFINED,
-            VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
+            VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+            1
         );
 
     }
@@ -1599,7 +1605,7 @@ private:
         samplerInfo.minLod = 0.0f;
         samplerInfo.maxLod = 0.0f;
 
-        // the samepler is a distinct object that provides an interface to extract colors from a texture and can be applied to any image you want
+        // the sampler is a distinct object that provides an interface to extract colors from a texture and can be applied to any image you want
         // older APIs use t ocombine texture iamges and filtering into one state
         if (vkCreateSampler(device, &samplerInfo, nullptr, &textureSampler) != VK_SUCCESS) {
             throw std::runtime_error("failed to create texture sampler!");
@@ -1607,7 +1613,7 @@ private:
     }
 
     void createTextureImageView() {
-        textureImageView = createImageView(textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT);
+        textureImageView = createImageView(textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT, mipLevels);
     }
 
     // Whenever we need to use an image we have to kind of surround it in a vulkan object so we can use in our program
@@ -1622,6 +1628,10 @@ private:
         if (!pixels) {
             throw std::runtime_error("failed to load texture image!");
         }
+
+        // calculates the number of levels in the mip chain
+        // level 0 is the original image and all the levels after 0 are referred as the mip chain
+        mipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(width, height)))) + 1;
 
         // create a staging buffer so we can memcpy and vkmapmemory
         VkBuffer stagingBuffer;
@@ -1640,7 +1650,9 @@ private:
 
         // create an image, similarly to a buffer
         // pay attention to usage sampled bit
-        createImage(width, height, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, textureImage, textureImageMemory);
+        // we also want to use the texture image as a VK_IMAGE_USAGE_TRANSFER_SRC_BIT since vkCmdBlitImage cmd to fill the levels of our mipmap past the base image
+        // vkCmdBlitImage performs copying, scaling, and filtering operations
+        createImage(width, height, mipLevels, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, textureImage, textureImageMemory);
 
         // make sure image is in correct layout by transitioning it
         // so after we create our image we change it to the correct format for copying from a buffer
@@ -1648,7 +1660,8 @@ private:
             textureImage, // the texture image object
             VK_FORMAT_R8G8B8A8_SRGB, // the format the image we created
             VK_IMAGE_LAYOUT_UNDEFINED, // we used undefined since didn't care about previous texel data since we're using this image as a transfer destination
-            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL // the new layout from undefined to transfer dst optimal
+            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, // the new layout from undefined to transfer dst optimal
+            mipLevels
         );
 
         // copy the buffer data to image
@@ -1664,7 +1677,8 @@ private:
             textureImage,
             VK_FORMAT_R8G8B8A8_SRGB,
             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            mipLevels
         );
 
         vkDestroyBuffer(device, stagingBuffer, nullptr);
@@ -2512,7 +2526,7 @@ private:
         // Iterate through over all of the swap chain images
         // We're creating an image view for each swap chain image
         for (size_t i = 0; i < swapChainImages.size(); i++) {
-            swapChainImageViews[i] = createImageView(swapChainImages[i], swapChainImageFormat, VK_IMAGE_ASPECT_COLOR_BIT);
+            swapChainImageViews[i] = createImageView(swapChainImages[i], swapChainImageFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1);
         }
     }
 
