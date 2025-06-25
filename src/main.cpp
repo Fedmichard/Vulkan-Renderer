@@ -390,6 +390,21 @@ private:
     VkBuffer modelIndexBuffer;
     VkDeviceMemory modelIndexMemory;
 
+    /*
+        we're using MSAA technique
+        MSAA uses multiple sample points per pixel to determine it's final color (right now we're using only 1 which gives it a kind of jagged and staircase effect per pixel)
+        with more sample points per pixel, each pixel that is covered by the triangle will receive a lighter/darker color
+        for example if a shape covers 1 of 4 sample points in a pixel, the output color will reflect that vs 4 of 4
+
+        by default we'll use one sample per pixel which is = to no multi sampling
+    */
+    VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_1_BIT;
+    // each pixel in sample in an offscreen buffer which is rendered to the screen in MSAA
+    // the new image will store the desired number of samples per pixel, so we need to pass this number on during the image creation process
+    VkImage colorImage;
+    VkImageView colorImageView;
+    VkDeviceMemory colorImageMemory;
+
     // Initialize GLFW and create a window
     void initWindow() {
         // Initializes glfw library, but it was originally designed for an OpenGL context
@@ -843,6 +858,34 @@ private:
         return buffer;
     }
 
+    VkSampleCountFlagBits getMaxUsableSampleCount() {
+        VkPhysicalDeviceProperties physicalDeviceProperties;
+        vkGetPhysicalDeviceProperties(physicalDevice, &physicalDeviceProperties);
+
+        VkSampleCountFlags counts = physicalDeviceProperties.limits.framebufferColorSampleCounts & physicalDeviceProperties.limits.framebufferDepthSampleCounts;
+
+        if (counts & VK_SAMPLE_COUNT_64_BIT) {
+            return VK_SAMPLE_COUNT_64_BIT;
+        }
+        if (counts & VK_SAMPLE_COUNT_32_BIT) {
+            return VK_SAMPLE_COUNT_32_BIT;
+        }
+        if (counts & VK_SAMPLE_COUNT_16_BIT) {
+            return VK_SAMPLE_COUNT_16_BIT;
+        }
+        if (counts & VK_SAMPLE_COUNT_8_BIT) {
+            return VK_SAMPLE_COUNT_8_BIT;
+        }
+        if (counts & VK_SAMPLE_COUNT_4_BIT) {
+            return VK_SAMPLE_COUNT_4_BIT;
+        }
+        if (counts & VK_SAMPLE_COUNT_2_BIT) {
+            return VK_SAMPLE_COUNT_2_BIT;
+        }
+        
+        return VK_SAMPLE_COUNT_1_BIT;
+    }
+
     /*
         Before we can pass our code to the graphics pipeline we must first wrap it in a VkShaderModule
         This will take in a buffer with the bytecode and create a shader module out of it
@@ -1118,7 +1161,7 @@ private:
 
         tiling = the arrangement of memory for image ex: R8G8B8
     */
-    void createImage(uint32_t width, uint32_t height, uint32_t mipLevels, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags prop, VkImage& image, VkDeviceMemory& imageMemory) {
+    void createImage(uint32_t width, uint32_t height, uint32_t mipLevels, VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags prop, VkImage& image, VkDeviceMemory& imageMemory) {
         // steps are similar to the creation and allocation of buffers
         // now we'll create the image itself
         VkImageCreateInfo imageInfo{}; 
@@ -1128,7 +1171,6 @@ private:
         imageInfo.extent.width = static_cast<uint32_t>(width);
         imageInfo.extent.height = static_cast<uint32_t>(height);
         imageInfo.extent.depth = 1;
-        imageInfo.mipLevels = 1;
         imageInfo.arrayLayers = 1;
         imageInfo.format = format;
         // this can have one of two values, optimal means the texels are laid out in an implementation defined order for optimal access from the shader
@@ -1142,7 +1184,7 @@ private:
         // will only be used by one queue family
         imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
         // this is for multi sampling and is only relevant for images that will be used as attachments
-        imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+        imageInfo.samples = numSamples;
         imageInfo.flags = 0;
 
         if (vkCreateImage(device, &imageInfo, nullptr, &image) != VK_SUCCESS) {
@@ -1393,6 +1435,123 @@ private:
         return imageView;
     }
 
+    void generateMipmaps(VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels) {
+        // check if image format supports linear blitting
+        VkFormatProperties formatProperties;
+        vkGetPhysicalDeviceFormatProperties(physicalDevice, imageFormat, &formatProperties);
+
+        if (!(formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT)) {
+            throw std::runtime_error("texture image format does not support linear blitting!");
+        }
+
+        VkCommandBuffer commandBuffer = beginSingleTimeCommands();
+
+        // once again barrier is used during the graphics pipeline
+        VkImageMemoryBarrier barrier{};
+        barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        barrier.image = image;
+        barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        barrier.subresourceRange.baseArrayLayer = 0;
+        barrier.subresourceRange.layerCount = 1;
+        barrier.subresourceRange.levelCount = 1;
+
+        int32_t mipWidth = texWidth;
+        int32_t mipHeight = texHeight;
+
+        // we start at one because the base mip levels 
+        for (uint32_t i = 1; i < mipLevels; i++) {
+            barrier.subresourceRange.baseMipLevel = i - 1; // base mip map is at 0
+            barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+            barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+            // all the operations
+            barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT; 
+            // all the operations in the buffer after the barrier
+            // starting from the VK_PIPELINE_STAGE_TRANSFER_BIT stage they can begin the VK_ACCESS_TRANSFER_READ_BIT operations
+            barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT; // 
+
+            vkCmdPipelineBarrier(
+                commandBuffer,
+                VK_PIPELINE_STAGE_TRANSFER_BIT, // the stage that occurs before this on the pipeline is transferring from buffer to image
+                VK_PIPELINE_STAGE_TRANSFER_BIT, // the stage that occurs after this is from image to another type of image
+                0,
+                0, nullptr,
+                0, nullptr,
+                1, &barrier
+            );
+
+            VkImageBlit blit{};
+            // the 3d region that the data will be blitted from
+            blit.srcOffsets[0] = { 0, 0, 0};
+            blit.srcOffsets[1] = { mipWidth, mipHeight, 1 };
+            blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            blit.srcSubresource.mipLevel = i - 1;
+            blit.srcSubresource.baseArrayLayer = 0;
+            blit.srcSubresource.layerCount = 1;
+            // the regions the data will be blitted to
+            blit.dstOffsets[0] = { 0, 0, 0 };
+            blit.dstOffsets[1] = { mipWidth > 1 ? mipWidth / 2 : 1, mipHeight > 1 ? mipHeight / 2 : 1, 1 };
+            blit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            blit.dstSubresource.mipLevel = i;
+            blit.dstSubresource.baseArrayLayer = 0;
+            blit.dstSubresource.layerCount = 1;
+
+            // now we record the blit command
+            // the same image is used as the src and dst because we're blitting between different levels of the same image
+            vkCmdBlitImage(
+                commandBuffer,
+                image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                1, &blit,
+                VK_FILTER_LINEAR
+            );
+
+            barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+            barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            // the src and access will specify what kind of opreations need to be synchronized between a src and dst stage across one barrier
+            // only operations that'll occur before and up until transfer stage will be a read
+            barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+            // only operations that'll occur after the fragment shader stage will be a read by the shader
+            // after the barrier
+            barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+            vkCmdPipelineBarrier(
+                commandBuffer,
+                VK_PIPELINE_STAGE_TRANSFER_BIT,
+                VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                0,
+                0, nullptr,
+                0, nullptr,
+                1, &barrier
+            );
+
+            // towards the end of the loop we scale the mip height and width down by 2 and make sure it never becomes 0
+            if (mipWidth > 1) mipWidth /= 2;
+            if (mipHeight > 1) mipHeight /= 2;
+        }
+
+        // once it gets to that point the dimension should remain 1 for all the remaining levels of the mip
+        // before the command buffer ends we insert one more pipeline barrier to transition the last mip level since it's not handled in the loop
+        barrier.subresourceRange.baseMipLevel = mipLevels - 1;
+        barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+        vkCmdPipelineBarrier(
+            commandBuffer,
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
+            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+            0,
+            0, nullptr,
+            0, nullptr,
+            1, &barrier
+        );
+
+        endSingleTimeCommands(commandBuffer);
+    }
+
     // Store and initiate each vulkan object
     void initVulkan() {
         // Is called on it's own to initialize vulkan
@@ -1407,6 +1566,7 @@ private:
         createDescriptorSetLayout();
         createGraphicsPipeline();
         createCommandPool();
+        createColorResources();
         createDepthResources();
         createFrameBuffers();
         createTextureImage();
@@ -1424,6 +1584,37 @@ private:
         createSyncObjects();
     }
 
+    /*
+        when implementing MSAA we need to set up a different render target
+        it'll be a completely different format than a regular image, each pixel in this buffer will hold 4 color values and 4 depth values instead of one
+        because it'll be different we're going to need a separate image to hold this data for us
+        before we can present an image we need to convert the multisampled data into a single-sampled resolved image
+
+        during resolving, the multiple samples within each pixel are combined
+    */
+    void createColorResources() {
+        VkFormat colorFormat = swapChainImageFormat;
+
+        createImage(
+            swapChainExtent.width,
+            swapChainExtent.height,
+            1,
+            msaaSamples,
+            colorFormat,
+            VK_IMAGE_TILING_OPTIMAL,
+            VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+            colorImage,
+            colorImageMemory
+        );
+
+        colorImageView = createImageView(
+            colorImage,
+            colorFormat,
+            VK_IMAGE_ASPECT_COLOR_BIT,
+            1
+        );
+    }
     
     void createModelVertexBuffer() {
         VkDeviceSize size = sizeof(modelVertices[0]) * modelVertices.size();
@@ -1534,6 +1725,7 @@ private:
             swapChainExtent.width,
             swapChainExtent.height,
             1,
+            msaaSamples,
             depthFormat,
             VK_IMAGE_TILING_OPTIMAL,
             VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
@@ -1601,9 +1793,9 @@ private:
         samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
         // these all apply to mipmapping which is just another type of filter that can be applied
         samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-        samplerInfo.mipLodBias = 0.0f;
         samplerInfo.minLod = 0.0f;
-        samplerInfo.maxLod = 0.0f;
+        samplerInfo.maxLod = static_cast<float>(mipLevels);
+        samplerInfo.mipLodBias = 0.0f;
 
         // the sampler is a distinct object that provides an interface to extract colors from a texture and can be applied to any image you want
         // older APIs use t ocombine texture iamges and filtering into one state
@@ -1650,9 +1842,9 @@ private:
 
         // create an image, similarly to a buffer
         // pay attention to usage sampled bit
-        // we also want to use the texture image as a VK_IMAGE_USAGE_TRANSFER_SRC_BIT since vkCmdBlitImage cmd to fill the levels of our mipmap past the base image
+        // we also want to use the texture image as a VK_IMAGE_USAGE_TRANSFER_SRC_BIT since vkCmdBlitImage cmd to fill the levels of our mipmap past the base image and is considered a transfer command
         // vkCmdBlitImage performs copying, scaling, and filtering operations
-        createImage(width, height, mipLevels, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, textureImage, textureImageMemory);
+        createImage(width, height, mipLevels, VK_SAMPLE_COUNT_1_BIT, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, textureImage, textureImageMemory);
 
         // make sure image is in correct layout by transitioning it
         // so after we create our image we change it to the correct format for copying from a buffer
@@ -1673,11 +1865,23 @@ private:
         );
 
         // then we transfer the image one more time so that the shader can access the image
-        transitionImageLayout(
+        /*
+            Removed 
+
+            transitionImageLayout(
+                textureImage,
+                VK_FORMAT_R8G8B8A8_SRGB,
+                VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                mipLevels
+            );
+        */
+
+        generateMipmaps(
             textureImage,
             VK_FORMAT_R8G8B8A8_SRGB,
-            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            width,
+            height,
             mipLevels
         );
 
@@ -1989,7 +2193,7 @@ private:
         // represents our actual vertex buffer that we're going to use VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT because that is the most optimal memory flag bit for the gpu to read from
         // we're also going to use it as a destination buffer during a transfer
         // now our vertex buffer has a memory type that is device local
-        createBuffer(size, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertexBufferMemory, vertexBuffer);
+        createBuffer(size, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertexBufferMemory, vertexBuffer);
 
         copyBuffer(stagingBuffer, vertexBuffer, size);
 
@@ -2084,9 +2288,10 @@ private:
 
         for (int i = 0; i < swapChainImageViews.size(); i++) {
             // the attachment for each swap chain is going to be an image view
-            std::array<VkImageView, 2> attachments = {
-                swapChainImageViews[i],
-                depthImageView
+            std::array<VkImageView, 3> attachments = {
+                colorImageView,
+                depthImageView,
+                swapChainImageViews[i]
             };
 
             VkFramebufferCreateInfo framebufferInfo{};
@@ -2123,7 +2328,7 @@ private:
         // format should match format of our swap chain images
         colorAttachment.format = swapChainImageFormat;
         // We're not doing anything with multisampling so we're only doing 1 sample
-        colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+        colorAttachment.samples = msaaSamples;
         // Applies to color and depth data
         // we use clear for load op so we can clear the framebuffer to black before drawing a new frame
         colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
@@ -2137,7 +2342,8 @@ private:
         // what's important to know is that images are going to be transitioned to a specific layout that are suitable for the operations they're going to be involved in
         colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED; // layout before rendering pass begins
         // image layout that's most optimal for presentaiton
-        colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR; // layout to automatically transition to after
+        // we changed the layout to VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL because we cannot directly present a msaa image
+        colorAttachment.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL; // layout to automatically transition to after
 
         /*
             A single render pass can consist of multiple sub passes
@@ -2157,7 +2363,7 @@ private:
         // depth attachment
         VkAttachmentDescription depthAttachment{};
         depthAttachment.format = findDepthFormat();
-        depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+        depthAttachment.samples = msaaSamples;
         depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
         depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
         depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
@@ -2170,8 +2376,22 @@ private:
         depthAttachmentRef.attachment = 1;
         depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
+        VkAttachmentDescription colorAttachmentResolve{};
+        colorAttachmentResolve.format = swapChainImageFormat;
+        colorAttachmentResolve.samples = VK_SAMPLE_COUNT_1_BIT;
+        colorAttachmentResolve.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+        colorAttachmentResolve.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+        colorAttachmentResolve.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+        colorAttachmentResolve.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+        colorAttachmentResolve.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        colorAttachmentResolve.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+
+        VkAttachmentReference colorAttachmentResolveRef{};
+        colorAttachmentResolveRef.attachment = 2;
+        colorAttachmentResolveRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
         // array with our attachments
-        std::array<VkAttachmentDescription, 2> attachments = { colorAttachment, depthAttachment };
+        std::array<VkAttachmentDescription, 3> attachments = { colorAttachment, depthAttachment, colorAttachmentResolve };
 
         /*
             Now for the creation of the subpass itself, this is made clear to be a graphics subpass
@@ -2184,6 +2404,7 @@ private:
         subpass.colorAttachmentCount = 1;
         subpass.pColorAttachments = &colorAttachmentRef;
         subpass.pDepthStencilAttachment = &depthAttachmentRef; // a subpass can only use a single depth stencil attachment
+        subpass.pResolveAttachments = &colorAttachmentResolveRef;
 
         /*
             The layout transitions are controlled by subpass dependencies which specify memory and execution dependencies between subpasses
@@ -2416,7 +2637,7 @@ private:
         VkPipelineMultisampleStateCreateInfo multisampling{};
         multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
         multisampling.sampleShadingEnable = VK_FALSE;
-        multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+        multisampling.rasterizationSamples = msaaSamples;
         multisampling.minSampleShading = 1.0f; // optional
         multisampling.pSampleMask = nullptr;
         multisampling.alphaToCoverageEnable = VK_FALSE;
@@ -2531,6 +2752,10 @@ private:
     }
 
     void cleanupSwapChain() {
+        vkDestroyImageView(device, colorImageView, nullptr);
+        vkDestroyImage(device, colorImage, nullptr);
+        vkFreeMemory(device, colorImageMemory, nullptr);
+
         vkDestroyImageView(device, depthImageView, nullptr);
         vkDestroyImage(device, depthImage, nullptr);
         vkFreeMemory(device, depthImageMemory, nullptr);
@@ -2566,6 +2791,7 @@ private:
         createSwapChain();
         // image views will have to be recreated because they are based on our swap chain images
         createImageViews();
+        createColorResources();
         createDepthResources();
         // frame buffers directly depend on the swapchain 
         // we don't recreate the framebuffer for simplicity but we don't since there isn't a chance of the image format to change
@@ -2741,6 +2967,7 @@ private:
         for (const auto& device : devices) {
             if (isDeviceSuitable(device)) {
                 physicalDevice = device;
+                msaaSamples = getMaxUsableSampleCount();
                 break;
             }
         }
@@ -2895,6 +3122,8 @@ private:
         VkSubmitInfo submitInfo{};
         submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
         // this is the semaphore used specifically between operations
+        // we use semaphores so we prevent reading and writing from sources that we don't read incorrect information or write to areas simultaneously
+        // GPUs are inherently parallel and so we need these to prevent these things from happening
         VkSemaphore waitSemaphores[] = { imageAvailableSemaphores[currentFrame] };
         // specifies which semaphore to signal once the command buffer has finished execution
         VkSemaphore signalSemaphores[] = { renderFinishedSemaphores[currentFrame] };
