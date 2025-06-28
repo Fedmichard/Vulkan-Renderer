@@ -63,8 +63,10 @@ uint32_t currentFrame = 0;
 // unsigned 32 bit ints for the width and the height, doesn't matter just means can't be negative
 const uint32_t WIDTH = 800;
 const uint32_t HEIGHT = 600;
-
 const std::string MODEL_PATH = "../models/viking_room.obj";
+const std::string PLANE_PATH = "../models/plane.obj";
+const std::string MASK_PATH = "../models/MSH_Casco_Final.obj";
+
 const std::string MODEL_TEXTURE = "../textures/viking_room.png";
 
 // After the vector is initialized you cannot modify the vector itself
@@ -305,7 +307,6 @@ private:
 
     // We can pass uniform values in shaders, which are global values that can be accessed and changed at drawtime through our entire pipeline without the need for recompiling
     // a component of the pipeline that defines the communication between your shaders and external global resources (buffers, textures, etc.)
-    // it specifies which VkDescriptorSetLayout's the pipeline will use and in what order as well as any push constants
     VkPipelineLayout pipelineLayout;
 
     // our pipeline
@@ -701,7 +702,7 @@ private:
         for (const auto& availableFormat : availableFormats) {
             // Go through all of our available fromats
             // If both of these options are available from our available formats return that available format
-            if (availableFormat.format == VK_FORMAT_R8G8B8A8_SRGB && availableFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
+            if (availableFormat.format == VK_FORMAT_B8G8R8A8_SRGB && availableFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
                 /*
                     VK_FORMAT_B8G8R8A8_SRGB means we store BGRA in that order as 8 bits each for a total of 32 bits per pixel
                     Each pixel in our swapchain images will be stored as 32 bits in that order in memory
@@ -709,11 +710,11 @@ private:
                 */
                 return availableFormat;
             }
-
-            // If that fails meaning we lack the support of both, we can usually just select the first one
-            // Or we can order them by how "good" they are
-            return availableFormats[0];
         }
+
+        // If that fails meaning we lack the support of both, we can usually just select the first one
+        // Or we can order them by how "good" they are
+        return availableFormats[0];
     }
 
     /*
@@ -1142,7 +1143,7 @@ private:
 
         UniformBufferObject ubo{};
         // takes an existing transformation, rotation angle, and rotation axis
-        ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+        ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(45.0f), glm::vec3(0.0f, 0.0f, 1.0f));
         // takes the position of the eye, center position, and up axis
         ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
         // use a perspective projection with a 45 degree fov, aspect ratio, and the near/far view planes
@@ -1159,7 +1160,7 @@ private:
         we allocated a region of memory on the gpu that suits are memory requirements, memory type, and memory properties we're searching for
         we binded that buffer to that region of memory
 
-        tiling = the arrangement of memory for image ex: R8G8B8
+        tiling = the arrangement of memory for entire image
     */
     void createImage(uint32_t width, uint32_t height, uint32_t mipLevels, VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags prop, VkImage& image, VkDeviceMemory& imageMemory) {
         // steps are similar to the creation and allocation of buffers
@@ -1502,7 +1503,7 @@ private:
             vkCmdBlitImage(
                 commandBuffer,
                 image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 
                 1, &blit,
                 VK_FILTER_LINEAR
             );
@@ -1537,7 +1538,7 @@ private:
         barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
         barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT; 
 
         vkCmdPipelineBarrier(
             commandBuffer,
@@ -2619,7 +2620,7 @@ private:
 
             frontface variables specifies the vertex order for faces to be considered front-facing 
         */
-        rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
+        // rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
         rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
         // The rasterizer can alter the depth values by adding a constant value or biasing them based on the fragments slope
         rasterizer.depthBiasEnable = VK_FALSE;
