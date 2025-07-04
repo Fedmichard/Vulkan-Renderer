@@ -2462,6 +2462,7 @@ private:
     /*
         Prepare for a fat paragraph:
         The graphics pipeline is just a sequence of operations your gpu performs
+        it encapsulates renderpass, shaders, etc etc as rendering configurations for your gpu
         These operations take the vertices textures of your meshes, the pixels in the render targets, etc etc
 
         simplified overview:
@@ -3117,6 +3118,7 @@ private:
         // reset command buffer so we can use for recording to
         vkResetCommandBuffer(commandBuffers[currentFrame], 0);
         // now we call the function to record the commands we want
+        recordCommandBuffer(commandBuffers[currentFrame], imageIndex);
         recordCommandBuffer(commandBuffers[currentFrame], imageIndex);
 
         // queue submission and synchronization will be configured through this struct
