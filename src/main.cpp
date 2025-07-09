@@ -1281,9 +1281,6 @@ private:
         barrier.subresourceRange.levelCount = 1;
         barrier.subresourceRange.baseArrayLayer = 0;
         barrier.subresourceRange.layerCount = 1;
-        // to do later?
-        barrier.srcAccessMask = 0;
-        barrier.dstAccessMask = 0;
 
         // ensure we're using the correct subresource range since it is adhering to texture images (we must check for depth)
         if (newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
@@ -1303,10 +1300,11 @@ private:
         // this first if statement is needed for loading texture data from the buffer, we transition the layout as a transfer destination
         if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
             // barrier configurations
-            // going to be reads and writes
+            // going to be reads and writes meaning what kind of memory access you're waiting for to complete before and after a pipeline stage
             barrier.srcAccessMask = 0; // no previous accesses occuring before to wait for
             barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT; // once layout transition is complete and specifies the subsequent memory operations that will occur 
 
+            // when in the pipeline we're going to create the sync
             srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT; // beginning of pipeline 
             dstStage = VK_PIPELINE_STAGE_TRANSFER_BIT; // the stage where data operations occur [ THIS IS A PSEUDO STAGE  WHERE TRANSFERS OCCUR NOT AN ACTUAL ONE IN THE PIPELINE]
         
@@ -3118,7 +3116,6 @@ private:
         // reset command buffer so we can use for recording to
         vkResetCommandBuffer(commandBuffers[currentFrame], 0);
         // now we call the function to record the commands we want
-        recordCommandBuffer(commandBuffers[currentFrame], imageIndex);
         recordCommandBuffer(commandBuffers[currentFrame], imageIndex);
 
         // queue submission and synchronization will be configured through this struct
