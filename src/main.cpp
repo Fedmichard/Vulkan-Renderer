@@ -417,9 +417,6 @@ private:
         // Hint, API: Used to specify which graphics API the window will be created for, glfw will not initialize OpenGL
         // Responsible for creating and managing a Vulkan instance
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-        
-        // Prevent window resizing
-        // glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
         // Create GLFW window
         // WIDTH, HEIGHT, "WINDOW NAME", Specify which monitor, OpenGL specific
@@ -483,13 +480,6 @@ private:
         // Then we'll run it again to actually update our layer vector
         vkEnumerateInstanceLayerProperties(&layerCount, availableValidationLayers.data());
 
-        // Same loop
-        std::cout << layerCount << " Available layers:" << std::endl;
-
-        for (const auto &layer : availableValidationLayers) {
-            std::cout << "\t" << layer.layerName << std::endl;
-        }
-
         // Now we're going to check if all the layers in validationLayers exist in our availableValidationLayers vector
         for (const char* layerName : validationLayers) {
             bool layerFound = false;
@@ -513,31 +503,6 @@ private:
         return true;
     }
 
-    void checkVulkanInstanceExtensions() {
-        // Sometimes while running vkCreateInstance you may get an error code that is VK_ERROR_EXTENSION_NOT_PRESENT
-        // This basically means that an extension we require isn't available, we could specify the specific extension we require but
-        // If we want to check for optional functionality we can retrieve a list of supported extensions before creating an instance
-        uint32_t extensionCount = 0;
-
-        // You can retrieve a list of supported extensions using this function
-        // 3rd param takes a pointer to a variable that stores the nubmer of extensions and a vkExtensionProperties to store details of the extensions
-        // We can leave this param empty though to request the number of extensions
-        // The first param is optional that allows us to filter extensions by a specific validation layer
-        vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
-        // Allocate an array to hold the extension details
-        std::vector<VkExtensionProperties> extensions(extensionCount);
-        // Then we can query the extension details:
-        vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, extensions.data());
-
-        std::cout << extensionCount << " Available extensions:" << std::endl;
-
-        // Loop through all our extensions and list them
-        for (const auto &extension : extensions) {
-            std::cout << "\t" << extension.extensionName << std::endl;
-        }
-
-    }
-
     /*
         Static meaning it's only visible within the current source file it is defined (can't be accessed by other cpp files)
         VKAPI_ATTR Essentially ensures that the function is exported corectly for the vulkan api to call it
@@ -545,8 +510,10 @@ private:
         VKAPI_CALL is another predefined macro it specifies the calling convention the function will use
         Ensures vulkan call back functions are called correctly
         The vulkan validation layers and driver will call this function whenver they have a message (error, warning, informational)
+
+        all of this get's filled from our populate debug messenger create info function below when we pass the function a long to it
     */
-    static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageServerity,
+    static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
         VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
         void* pUserData) {
             /*
@@ -654,6 +621,9 @@ private:
         uint32_t queueFamilyCount = 0;
         vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
 
+        /*
+            each VkQueueFamilyProperties represents one queue family supported by said physical device
+        */
         std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
         // Has some info such as the type of operations supported and the number of queues that can be created
         // With the queue families from our device we're looking for all the ones that support VK_QUEUE_GRAPHICS_BIT so we can add to our indicies perhaps?
@@ -662,6 +632,7 @@ private:
         int i = 0;
         for (const auto& queueFamily : queueFamilies) {
             VkBool32 presentSupport = false;
+            // it checks if the index of this 
             vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surface, &presentSupport);
 
             if (presentSupport) {
@@ -1553,7 +1524,6 @@ private:
 
     // Store and initiate each vulkan object
     void initVulkan() {
-        // Is called on it's own to initialize vulkan
         createInstance();
         setUpDebugMessenger();
         createSurface();
@@ -2996,6 +2966,8 @@ private:
         Pointer to struct with creation info
         Pointer to custom allocator callbacks
         Pointer to the varaible that stores the handle to the new object
+
+        connection between your application and vulkan
     */
     void createInstance() {
         // If validation layers are enabled (non debug mode) and validation layer support is false
@@ -3004,8 +2976,6 @@ private:
             throw std::runtime_error("Validation layers requested, but not available!");
         }
 
-        // Fill a struct with some information
-        // Technically optional, but it may provide some useful information to the driver in order to optimize our specific app
         // A lot of info in vulkan is passed through structs instead of function params
         VkApplicationInfo appInfo{}; // set all of the default values of appInfo
         // Many structs require you to explicitly specify the type
@@ -3035,15 +3005,14 @@ private:
             createInfo.ppEnabledLayerNames = validationLayers.data();
 
             populateDebugMessengerCreateInfo(debugCreateInfo);
+            // to capture events that occur while creating or destroying an instance we extend this structure
+            // SPECIFICALLY USED DURING THE CREATION AND DESTROYING OF A VULKAN INSTANCE
             createInfo.pNext = (VkDebugUtilsMessengerCreateInfoEXT*) &debugCreateInfo;
         } else {
             createInfo.enabledLayerCount = 0; 
 
             createInfo.pNext = nullptr;
         }
-
-        // List all available vulkan instance extensions on this system
-        checkVulkanInstanceExtensions();
 
         /*
             Now specified everything Vulkan needs to create an instance and we can finally issue the vkCreateInstance call
