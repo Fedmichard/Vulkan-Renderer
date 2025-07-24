@@ -2552,8 +2552,6 @@ private:
         scissor.offset = { 0, 0 };
         scissor.extent = swapChainExtent;
 
-        
-
         // then you only need to specify their count at pipeline creation time
         // The actual viewport and scissor rectangle will then later be set up at drawing time
         VkPipelineViewportStateCreateInfo viewportState{};
